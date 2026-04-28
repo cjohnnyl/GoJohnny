@@ -16,6 +16,9 @@ router = APIRouter(
 
 @router.post("", response_model=PlanoSemanalRead, status_code=201)
 def create_plano(data: PlanoSemanalCreate, db: Session = Depends(get_db)):
+    if not data.plano:
+        raise HTTPException(status_code=422, detail="Campo 'plano' é obrigatório e não pode estar vazio")
+
     atleta = get_atleta_by_apelido(db, data.apelido)
     plano = PlanoSemanal(
         atleta_id=atleta.id,

@@ -1,5 +1,6 @@
 import uuid
 from sqlalchemy import Column, Numeric, Date, Text, DateTime, ForeignKey
+from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.core.database import Base
 
@@ -14,6 +15,6 @@ class PlanoSemanal(Base):
     objetivo_semana = Column(Text)
     volume_planejado_km = Column(Numeric)
     status = Column(Text)
-    plano = Column(JSONB)
-    criado_em = Column(DateTime(timezone=True))
-    atualizado_em = Column(DateTime(timezone=True))
+    plano = Column(JSONB, nullable=False)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    atualizado_em = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

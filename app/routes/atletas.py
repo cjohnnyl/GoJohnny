@@ -1,7 +1,6 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
 from app.core.database import get_db
 from app.core.auth import verify_api_key
 from app.models.atleta import Atleta
@@ -25,12 +24,7 @@ def create_atleta(data: AtletaCreate, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=409, detail=f"Apelido '{data.apelido}' já existe")
 
-    now = datetime.now(timezone.utc)
-    atleta = Atleta(
-        **data.model_dump(),
-        criado_em=now,
-        atualizado_em=now
-    )
+    atleta = Atleta(**data.model_dump())
     db.add(atleta)
     db.commit()
     db.refresh(atleta)

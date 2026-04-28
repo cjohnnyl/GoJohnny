@@ -1,5 +1,6 @@
 import uuid
 from sqlalchemy import Column, String, Integer, Numeric, Date, Text, DateTime
+from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
@@ -24,5 +25,5 @@ class Atleta(Base):
     data_proxima_prova = Column(Date)
     distancia_alvo_km = Column(Numeric)
     observacoes = Column(Text)
-    criado_em = Column(DateTime(timezone=True))
-    atualizado_em = Column(DateTime(timezone=True))
+    criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    atualizado_em = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

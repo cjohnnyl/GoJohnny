@@ -1,5 +1,6 @@
 import uuid
 from sqlalchemy import Column, Integer, Numeric, Date, Text, DateTime, ForeignKey
+from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
@@ -21,4 +22,4 @@ class Checkin(Base):
     sono = Column(Text)
     sensacao_geral = Column(Text)
     observacoes = Column(Text)
-    criado_em = Column(DateTime(timezone=True))
+    criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

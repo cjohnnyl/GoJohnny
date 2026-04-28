@@ -11,7 +11,7 @@ class PlanoSemanalCreate(BaseModel):
     objetivo_semana: Optional[str] = None
     volume_planejado_km: Optional[Decimal] = None
     status: Optional[str] = None
-    plano: Optional[Any] = None
+    plano: Any
 
 
 class PlanoSemanalRead(BaseModel):
