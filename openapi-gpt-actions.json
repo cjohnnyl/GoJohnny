@@ -1,0 +1,633 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "GoJohnny API",
+    "description": "Consultoria pessoal de corrida com IA",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://gojohnny.onrender.com",
+      "description": "Production server"
+    }
+  ],
+  "security": [
+    {
+      "ApiKeyHeader": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      }
+    },
+    "schemas": {
+      "AtletaCreate": {
+        "type": "object",
+        "required": [
+          "nome",
+          "apelido"
+        ],
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "apelido": {
+            "type": "string"
+          },
+          "objetivo": {
+            "type": "string"
+          },
+          "nivel": {
+            "type": "string"
+          },
+          "dias_treino": {
+            "type": "integer"
+          },
+          "altura_cm": {
+            "type": "integer"
+          },
+          "peso_kg": {
+            "type": "number"
+          },
+          "pace_confortavel": {
+            "type": "string"
+          },
+          "maior_distancia_recente_km": {
+            "type": "number"
+          },
+          "historico_dores": {
+            "type": "string"
+          },
+          "tenis_disponiveis": {
+            "type": "string"
+          },
+          "proxima_prova": {
+            "type": "string"
+          },
+          "data_proxima_prova": {
+            "type": "string",
+            "format": "date"
+          },
+          "distancia_alvo_km": {
+            "type": "number"
+          },
+          "observacoes": {
+            "type": "string"
+          }
+        }
+      },
+      "Atleta": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "apelido": {
+            "type": "string"
+          },
+          "objetivo": {
+            "type": "string"
+          },
+          "nivel": {
+            "type": "string"
+          },
+          "dias_treino": {
+            "type": "integer"
+          },
+          "altura_cm": {
+            "type": "integer"
+          },
+          "peso_kg": {
+            "type": "number"
+          },
+          "pace_confortavel": {
+            "type": "string"
+          },
+          "maior_distancia_recente_km": {
+            "type": "number"
+          },
+          "historico_dores": {
+            "type": "string"
+          },
+          "tenis_disponiveis": {
+            "type": "string"
+          },
+          "proxima_prova": {
+            "type": "string"
+          },
+          "data_proxima_prova": {
+            "type": "string",
+            "format": "date"
+          },
+          "distancia_alvo_km": {
+            "type": "number"
+          },
+          "observacoes": {
+            "type": "string"
+          },
+          "criado_em": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "atualizado_em": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AtletaUpdate": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "apelido": {
+            "type": "string"
+          },
+          "objetivo": {
+            "type": "string"
+          },
+          "nivel": {
+            "type": "string"
+          },
+          "dias_treino": {
+            "type": "integer"
+          },
+          "altura_cm": {
+            "type": "integer"
+          },
+          "peso_kg": {
+            "type": "number"
+          },
+          "pace_confortavel": {
+            "type": "string"
+          },
+          "maior_distancia_recente_km": {
+            "type": "number"
+          },
+          "historico_dores": {
+            "type": "string"
+          },
+          "tenis_disponiveis": {
+            "type": "string"
+          },
+          "proxima_prova": {
+            "type": "string"
+          },
+          "data_proxima_prova": {
+            "type": "string",
+            "format": "date"
+          },
+          "distancia_alvo_km": {
+            "type": "number"
+          },
+          "observacoes": {
+            "type": "string"
+          }
+        }
+      },
+      "CheckinCreate": {
+        "type": "object",
+        "required": [
+          "apelido",
+          "semana_inicio"
+        ],
+        "properties": {
+          "apelido": {
+            "type": "string"
+          },
+          "semana_inicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "treinos_planejados": {
+            "type": "integer"
+          },
+          "treinos_realizados": {
+            "type": "integer"
+          },
+          "volume_planejado_km": {
+            "type": "number"
+          },
+          "volume_realizado_km": {
+            "type": "number"
+          },
+          "pace_medio": {
+            "type": "string"
+          },
+          "cansaco_0_10": {
+            "type": "integer"
+          },
+          "dores": {
+            "type": "string"
+          },
+          "sono": {
+            "type": "string"
+          },
+          "sensacao_geral": {
+            "type": "string"
+          },
+          "observacoes": {
+            "type": "string"
+          }
+        }
+      },
+      "Checkin": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "atleta_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "semana_inicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "treinos_planejados": {
+            "type": "integer"
+          },
+          "treinos_realizados": {
+            "type": "integer"
+          },
+          "volume_planejado_km": {
+            "type": "number"
+          },
+          "volume_realizado_km": {
+            "type": "number"
+          },
+          "pace_medio": {
+            "type": "string"
+          },
+          "cansaco_0_10": {
+            "type": "integer"
+          },
+          "dores": {
+            "type": "string"
+          },
+          "sono": {
+            "type": "string"
+          },
+          "sensacao_geral": {
+            "type": "string"
+          },
+          "observacoes": {
+            "type": "string"
+          },
+          "criado_em": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PlanoSemanalCreate": {
+        "type": "object",
+        "required": [
+          "apelido",
+          "semana_inicio"
+        ],
+        "properties": {
+          "apelido": {
+            "type": "string"
+          },
+          "semana_inicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "objetivo_semana": {
+            "type": "string"
+          },
+          "volume_planejado_km": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string"
+          },
+          "plano": {
+            "type": "object"
+          }
+        }
+      },
+      "PlanoSemanal": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "atleta_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "semana_inicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "objetivo_semana": {
+            "type": "string"
+          },
+          "volume_planejado_km": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string"
+          },
+          "plano": {
+            "type": "object"
+          },
+          "criado_em": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "atualizado_em": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/atletas": {
+      "post": {
+        "summary": "Criar novo atleta",
+        "operationId": "create_atleta",
+        "tags": [
+          "atletas"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtletaCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Atleta criado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Atleta"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Apelido já existe"
+          },
+          "401": {
+            "description": "Não autorizado - API key inválida"
+          }
+        }
+      }
+    },
+    "/atletas/{apelido}": {
+      "get": {
+        "summary": "Buscar atleta por apelido",
+        "operationId": "get_atleta",
+        "tags": [
+          "atletas"
+        ],
+        "parameters": [
+          {
+            "name": "apelido",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Atleta encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Atleta"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Atleta não encontrado"
+          },
+          "401": {
+            "description": "Não autorizado - API key inválida"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Atualizar atleta",
+        "operationId": "update_atleta",
+        "tags": [
+          "atletas"
+        ],
+        "parameters": [
+          {
+            "name": "apelido",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtletaUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Atleta atualizado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Atleta"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Atleta não encontrado"
+          },
+          "401": {
+            "description": "Não autorizado - API key inválida"
+          }
+        }
+      }
+    },
+    "/checkins": {
+      "post": {
+        "summary": "Criar check-in semanal",
+        "operationId": "create_checkin",
+        "tags": [
+          "checkins"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckinCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Check-in criado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Checkin"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Atleta não encontrado"
+          },
+          "401": {
+            "description": "Não autorizado - API key inválida"
+          }
+        }
+      }
+    },
+    "/checkins/{apelido}": {
+      "get": {
+        "summary": "Listar check-ins do atleta",
+        "operationId": "list_checkins",
+        "tags": [
+          "checkins"
+        ],
+        "parameters": [
+          {
+            "name": "apelido",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de check-ins",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Checkin"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Atleta não encontrado"
+          },
+          "401": {
+            "description": "Não autorizado - API key inválida"
+          }
+        }
+      }
+    },
+    "/planos-semanais": {
+      "post": {
+        "summary": "Criar plano semanal",
+        "operationId": "create_plano",
+        "tags": [
+          "planos_semanais"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanoSemanalCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Plano semanal criado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanoSemanal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Atleta não encontrado"
+          },
+          "401": {
+            "description": "Não autorizado - API key inválida"
+          }
+        }
+      }
+    },
+    "/planos-semanais/{apelido}/atual": {
+      "get": {
+        "summary": "Obter plano semanal ativo atual",
+        "operationId": "get_plano_atual",
+        "tags": [
+          "planos_semanais"
+        ],
+        "parameters": [
+          {
+            "name": "apelido",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plano semanal ativo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanoSemanal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plano semanal não encontrado ou atleta não existe"
+          },
+          "401": {
+            "description": "Não autorizado - API key inválida"
+          }
+        }
+      }
+    }
+  }
+}

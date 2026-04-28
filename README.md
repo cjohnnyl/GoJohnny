@@ -91,6 +91,31 @@ Substitua `SUA_API_KEY` pela chave definida no `.env`.
 curl http://localhost:8000/health
 ```
 
+### POST /atletas
+
+```bash
+curl -X POST http://localhost:8000/atletas \
+  -H "x-api-key: SUA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nome": "Larissa",
+    "apelido": "larissa",
+    "objetivo": "começar a correr com segurança",
+    "nivel": "iniciante",
+    "dias_treino": 3,
+    "altura_cm": 165,
+    "peso_kg": 60,
+    "pace_confortavel": null,
+    "maior_distancia_recente_km": null,
+    "historico_dores": null,
+    "tenis_disponiveis": null,
+    "proxima_prova": null,
+    "data_proxima_prova": null,
+    "distancia_alvo_km": null,
+    "observacoes": null
+  }'
+```
+
 ### GET /atletas/johnny
 
 ```bash

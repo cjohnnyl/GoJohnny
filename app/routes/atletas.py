@@ -1,10 +1,11 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 from app.core.database import get_db
 from app.core.auth import verify_api_key
 from app.models.atleta import Atleta
-from app.schemas.atleta import AtletaRead, AtletaUpdate
+from app.schemas.atleta import AtletaRead, AtletaUpdate, AtletaCreate
 
 router = APIRouter(
     prefix="/atletas",
@@ -16,6 +17,24 @@ router = APIRouter(
 @router.get("", response_model=List[AtletaRead])
 def list_atletas(db: Session = Depends(get_db)):
     return db.query(Atleta).all()
+
+
+@router.post("", response_model=AtletaRead, status_code=status.HTTP_201_CREATED)
+def create_atleta(data: AtletaCreate, db: Session = Depends(get_db)):
+    existing = db.query(Atleta).filter(Atleta.apelido == data.apelido).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Apelido '{data.apelido}' já existe")
+
+    now = datetime.now(timezone.utc)
+    atleta = Atleta(
+        **data.model_dump(),
+        criado_em=now,
+        atualizado_em=now
+    )
+    db.add(atleta)
+    db.commit()
+    db.refresh(atleta)
+    return atleta
 
 
 @router.get("/{apelido}", response_model=AtletaRead)
