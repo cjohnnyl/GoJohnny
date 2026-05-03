@@ -11,3 +11,4 @@ httpx==0.28.1            # cliente HTTP para TestClient da FastAPI
 anyio==4.7.0             # requisito do TestClient assíncrono
 freezegun==1.5.1         # congelar datetime nos testes da engine de calendário
 sqlalchemy-utils==0.41.2 # criar/destruir banco de teste descartável
+pgserver==0.1.4          # Postgres portátil para CI/sandbox sem Docker
