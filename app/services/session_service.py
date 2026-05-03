@@ -59,7 +59,7 @@ def iniciar_sessao(db: Session, *, apelido: str) -> dict:
         return _resposta_novo()
 
     atleta: Atleta | None = (
-        db.query(Atleta).filter(Atleta.apelido == apelido_norm).first()
+        db.query(Atleta).filter(Atleta.apelido.ilike(apelido_norm)).first()
     )
 
     if atleta is None:
