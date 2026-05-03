@@ -531,21 +531,21 @@
       }
     },
     "/atletas/{apelido}": {
-      "parameters": [
-        {
-          "name": "apelido",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        }
-      ],
       "get": {
         "summary": "Buscar atleta por apelido",
         "operationId": "get_atleta",
         "tags": [
           "atletas"
+        ],
+        "parameters": [
+          {
+            "name": "apelido",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
