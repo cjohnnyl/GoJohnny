@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "GoJohnny API",
-    "description": "Consultoria pessoal de corrida com IA",
-    "version": "1.0.0"
+    "description": "Consultoria pessoal de corrida com IA. Fase 1: identificacao de sessao, feature flags, contexto persistente e protecao contra sobrescrita de plano.",
+    "version": "1.1.0"
   },
   "servers": [
     {
@@ -140,6 +140,18 @@
           "atualizado_em": {
             "type": "string",
             "format": "date-time"
+          },
+          "usar_datas_reais": {
+            "type": "boolean"
+          },
+          "usar_contexto_atleta": {
+            "type": "boolean"
+          },
+          "usar_google_calendar": {
+            "type": "boolean"
+          },
+          "usar_strava": {
+            "type": "boolean"
           }
         }
       },
@@ -316,6 +328,28 @@
           },
           "plano": {
             "type": "object"
+          },
+          "data_inicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "data_prova": {
+            "type": "string",
+            "format": "date"
+          },
+          "dias_treino_json": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "versao_estrutura": {
+            "type": "integer"
+          },
+          "novo_ciclo": {
+            "type": "boolean",
+            "default": false,
+            "description": "Se ja existe plano ativo para este atleta, exige true para criar um novo (que arquivara o anterior). Sem este flag, o backend retorna 409 Conflict."
           }
         }
       },
@@ -353,6 +387,106 @@
           "atualizado_em": {
             "type": "string",
             "format": "date-time"
+          },
+          "data_inicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "data_prova": {
+            "type": "string",
+            "format": "date"
+          },
+          "dias_treino_json": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "versao_estrutura": {
+            "type": "integer"
+          }
+        }
+      },
+      "SessaoIniciarRequest": {
+        "type": "object",
+        "required": [
+          "apelido"
+        ],
+        "properties": {
+          "apelido": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "Apelido informado pelo usuario no inicio do chat."
+          }
+        }
+      },
+      "FlagsResponse": {
+        "type": "object",
+        "properties": {
+          "usar_datas_reais": {
+            "type": "boolean"
+          },
+          "usar_contexto_atleta": {
+            "type": "boolean"
+          },
+          "usar_google_calendar": {
+            "type": "boolean"
+          },
+          "usar_strava": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SessaoIniciarResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "flags",
+          "instrucao_continuacao"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "novo",
+              "existente"
+            ]
+          },
+          "atleta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Atleta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plano_atual": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanoSemanal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contexto_resumo": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "flags": {
+            "$ref": "#/components/schemas/FlagsResponse"
+          },
+          "instrucao_continuacao": {
+            "type": "string"
           }
         }
       }
@@ -588,6 +722,9 @@
           },
           "401": {
             "description": "Não autorizado - API key inválida"
+          },
+          "409": {
+            "description": "Plano ativo ja existe. Para sobrescrever, refazer com novo_ciclo: true."
           }
         }
       }
@@ -625,6 +762,41 @@
           },
           "401": {
             "description": "Não autorizado - API key inválida"
+          }
+        }
+      }
+    },
+    "/sessao/iniciar": {
+      "post": {
+        "summary": "Iniciar sessao do atleta",
+        "operationId": "iniciar_sessao",
+        "tags": [
+          "sessao"
+        ],
+        "description": "Identifica usuario por apelido. Retorna status (novo|existente), plano atual, contexto e instrucao de continuacao para o GPT. Idempotente. NAO cria atleta - criacao continua via POST /atletas. DEVE ser o PRIMEIRO endpoint chamado em qualquer chat novo.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessaoIniciarRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sessao iniciada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessaoIniciarResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Nao autorizado - API key invalida"
           }
         }
       }

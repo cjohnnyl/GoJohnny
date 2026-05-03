@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Integer, Numeric, Date, Text, DateTime
+from sqlalchemy import Column, String, Integer, Numeric, Date, Text, DateTime, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
@@ -25,5 +25,10 @@ class Atleta(Base):
     data_proxima_prova = Column(Date)
     distancia_alvo_km = Column(Numeric)
     observacoes = Column(Text)
+    # Feature flags (Fase 1, Bloco 5) - default false para usuarios existentes
+    usar_datas_reais = Column(Boolean, nullable=False, server_default="false", default=False)
+    usar_contexto_atleta = Column(Boolean, nullable=False, server_default="false", default=False)
+    usar_google_calendar = Column(Boolean, nullable=False, server_default="false", default=False)
+    usar_strava = Column(Boolean, nullable=False, server_default="false", default=False)
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     atualizado_em = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
