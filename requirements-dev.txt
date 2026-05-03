@@ -1,0 +1,13 @@
+# Dependências de desenvolvimento e testes — Fase 1
+# Usadas apenas localmente e em CI. NÃO entram no deploy do Render.
+# Instalar com:  pip install -r requirements-dev.txt
+#
+# Versões pinadas conservadoramente em maio/2026.
+
+pytest==8.3.4
+pytest-cov==6.0.0
+pytest-asyncio==0.25.2
+httpx==0.28.1            # cliente HTTP para TestClient da FastAPI
+anyio==4.7.0             # requisito do TestClient assíncrono
+freezegun==1.5.1         # congelar datetime nos testes da engine de calendário
+sqlalchemy-utils==0.41.2 # criar/destruir banco de teste descartável

@@ -8,3 +8,9 @@ venv/
 dist/
 build/
 .DS_Store
+
+# Fase 1 additions
+.pytest_cache/
+backups/
+/tmp/
+.coverage
