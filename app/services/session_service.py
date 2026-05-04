@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.models.atleta import Atleta
 from app.models.plano_semanal import PlanoSemanal
-from app.services.context_service import resumo_contexto
+from app.services.context_service import contexto_com_fallback
 from app.services.feature_flag_service import capabilities_para
 
 
@@ -76,7 +76,7 @@ def iniciar_sessao(db: Session, *, apelido: str) -> dict:
     )
 
     caps = capabilities_para(atleta)
-    contexto = resumo_contexto(db, atleta.id)
+    contexto = contexto_com_fallback(db, atleta)
 
     instrucao = (
         INSTRUCAO_EXISTENTE_COM_PLANO if plano is not None
