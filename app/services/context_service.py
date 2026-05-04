@@ -151,6 +151,40 @@ def resumo_contexto(
     return out
 
 
+def contexto_com_fallback(
+    db: Session,
+    atleta: Atleta,
+) -> dict[str, dict[str, str]]:
+    """Resumo de contexto com fallback inteligente.
+
+    Primeiro, tenta recuperar contexto salvo. Se NAO existir contexto salvo,
+    monta automaticamente a partir do perfil do atleta (fallback).
+
+    Fallback é útil para:
+      - Atletas antigos que ainda não têm contexto_atleta persistido
+      - Inicializar contexto no primeiro acesso sem fazer POST manual
+      - Garantir que contexto_resumo nunca fica vazio na sessão
+
+    NÃO salva o fallback automaticamente - contexto salvo sempre tem prioridade.
+    """
+    # Tentar recuperar contexto persistido
+    entradas = listar_contexto(db, atleta.id)
+
+    if entradas:
+        # Tem contexto salvo, retorna como está
+        out: dict[str, dict[str, str]] = {}
+        for e in entradas:
+            out.setdefault(e.tipo, {})[e.chave] = e.valor or ""
+        return out
+
+    # Fallback: montar a partir do atleta
+    fallback_entradas = montar_contexto_inicial_do_onboarding(atleta)
+    out = {}
+    for e in fallback_entradas:
+        out.setdefault(e.tipo, {})[e.chave] = e.valor or ""
+    return out
+
+
 def montar_contexto_inicial_do_onboarding(
     atleta: Atleta,
 ) -> list[EntradaContexto]:

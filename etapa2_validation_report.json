@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-05-04T19:43:39.096711",
+  "total": 7,
+  "passed": 7,
+  "failed": 0,
+  "resultados": [
+    {
+      "cenario": "Normalização de Dias",
+      "status": "PASS",
+      "mensagem": "Todos os 20 casos testados com sucesso",
+      "timestamp": "2026-05-04T19:43:39.095150"
+    },
+    {
+      "cenario": "Estrutura de Contexto",
+      "status": "PASS",
+      "mensagem": "Estrutura {tipo: {chave: valor}} validada",
+      "timestamp": "2026-05-04T19:43:39.095516"
+    },
+    {
+      "cenario": "Fallback Não Vazio",
+      "status": "PASS",
+      "mensagem": "Fallback nunca retorna dict vazio",
+      "timestamp": "2026-05-04T19:43:39.095533"
+    },
+    {
+      "cenario": "Unicidade (tipo, chave)",
+      "status": "PASS",
+      "mensagem": "Constraint UNIQUE validado para UPSERT",
+      "timestamp": "2026-05-04T19:43:39.095549"
+    },
+    {
+      "cenario": "Tipos Canônicos",
+      "status": "PASS",
+      "mensagem": "5 tipos canônicos validados",
+      "timestamp": "2026-05-04T19:43:39.095562"
+    },
+    {
+      "cenario": "Range de Confiança",
+      "status": "PASS",
+      "mensagem": "Confiança validada para [0.0, 1.0]",
+      "timestamp": "2026-05-04T19:43:39.095574"
+    },
+    {
+      "cenario": "Origem Obrigatória",
+      "status": "PASS",
+      "mensagem": "Origem validada como obrigatória e não vazia",
+      "timestamp": "2026-05-04T19:43:39.095615"
+    }
+  ]
+}
