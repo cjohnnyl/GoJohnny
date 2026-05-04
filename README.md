@@ -1,219 +1,125 @@
 # GoJohnny API
 
-Consultoria pessoal de corrida com IA. Backend em FastAPI conectado ao Supabase/Postgres,
-projetado para ser consumido por um Custom GPT via GPT Actions.
+Consultoria pessoal de corrida com IA. Backend FastAPI + Supabase/Postgres consumido por um Custom GPT via Actions.
 
-## Estrutura de pastas
+> **Status atual (maio/2026):** Fase 1 implementada na branch `feat/fase-1`. Suite de testes 102/102 verde. Aguardando aplicação da migration 002 em produção e revisão das instruções do Custom GPT.
+
+## O que entrou na Fase 1
+
+- `POST /sessao/iniciar` — endpoint único de identificação no início de qualquer chat. Retorna status (novo|existente), plano atual, contexto e instrução de continuação para o GPT.
+- Feature flags por atleta (4 colunas BOOLEAN dedicadas, default false): `usar_datas_reais`, `usar_contexto_atleta`, `usar_google_calendar`, `usar_strava`.
+- Plano semanal enriquecido (aditivo): novos campos opcionais `data_inicio`, `data_prova`, `dias_treino_json`, `versao_estrutura`. Planos antigos continuam sendo lidos sem alteração.
+- Engine de calendário determinística (`app/services/calendar_engine.py`) — segunda-feira como início de semana ISO, timezone America/Sao_Paulo.
+- Leitura tolerante do plano (`app/services/plan_parser.py`) — mesma representação interna para planos legados e enriquecidos.
+- Tabela `contexto_atleta` para memória persistente (chave/valor por tipo, com origem rastreável e idempotente via UNIQUE).
+- Proteção contra sobrescrita: `POST /planos-semanais` retorna 409 se já existe plano ativo. Para iniciar novo ciclo, enviar `novo_ciclo: true`. O plano anterior é arquivado, nunca apagado.
+- Logging estruturado de toda criação/atualização de plano.
+
+## Estrutura do repositório
 
 ```
 gojohnny/
 ├── app/
-│   ├── main.py
-│   ├── core/
-│   │   ├── config.py       # variáveis de ambiente
-│   │   ├── database.py     # engine, SessionLocal, get_db
-│   │   └── auth.py         # verificação de API key
-│   ├── models/
-│   │   ├── atleta.py
+│   ├── main.py                       # FastAPI app, registra os routers
+│   ├── core/                         # config, database, auth
+│   ├── models/                       # SQLAlchemy ORM
+│   │   ├── atleta.py                 # +4 flags Boolean
 │   │   ├── checkin.py
-│   │   └── plano_semanal.py
-│   ├── schemas/
-│   │   ├── atleta.py
+│   │   ├── plano_semanal.py          # +4 campos opcionais (Fase 1)
+│   │   └── contexto_atleta.py        # NOVO Fase 1
+│   ├── schemas/                      # Pydantic v2
+│   │   ├── atleta.py                 # +AtletaFlagsUpdate
 │   │   ├── checkin.py
-│   │   └── plano_semanal.py
+│   │   ├── plano_semanal.py          # +novo_ciclo, +campos enriquecidos
+│   │   ├── contexto_atleta.py        # NOVO Fase 1
+│   │   └── sessao.py                 # NOVO Fase 1
 │   ├── routes/
 │   │   ├── atletas.py
 │   │   ├── checkins.py
-│   │   └── planos_semanais.py
+│   │   ├── planos_semanais.py        # +protecao sobrescrita
+│   │   └── sessao.py                 # NOVO Fase 1
 │   └── services/
-│       └── atleta_service.py
+│       ├── atleta_service.py
+│       ├── calendar_engine.py        # NOVO Fase 1 (37 testes)
+│       ├── plan_parser.py            # NOVO Fase 1 (25 testes)
+│       ├── feature_flag_service.py   # NOVO Fase 1
+│       ├── context_service.py        # NOVO Fase 1
+│       ├── plano_service.py          # NOVO Fase 1 (regra de sobrescrita)
+│       └── session_service.py        # NOVO Fase 1
+├── migrations/
+│   ├── 001_add_timestamp_defaults.sql
+│   └── 002_fase1_aditiva.sql         # NOVO Fase 1
+├── scripts/
+│   ├── backup_pre_fase1.sh           # NOVO Fase 1
+│   └── backup_pre_fase1.sql          # NOVO Fase 1
+├── docs/
+│   ├── HANDOFF_FASE1.md              # PASSO A PASSO PARA CONTINUAR
+│   ├── QA_RELATORIO_FASE1.md         # 102 testes documentados
+│   ├── gpt_instructions.md           # texto do Custom GPT
+│   └── runbooks/
+│       └── rollback.md               # backup, deploy, rollback
+├── tests/
+│   ├── conftest.py                   # fixtures, sobe pgserver na sandbox
+│   ├── services/                     # 71 testes unitários
+│   └── integration/                  # 16 testes de integração (cenários A-E)
+├── docker-compose.test.yml           # NOVO Fase 1 (Postgres efêmero)
 ├── requirements.txt
+├── requirements-dev.txt              # NOVO Fase 1
+├── pytest.ini                        # NOVO Fase 1
 ├── render.yaml
-├── .env.example
-├── .gitignore
+├── openapi-gpt-actions.json          # +/sessao/iniciar, +flags, +novo_ciclo
 └── README.md
-```
-
-## Como configurar .env
-
-Copie o arquivo de exemplo e preencha com seus dados reais:
-
-```bash
-cp .env.example .env
-```
-
-Edite `.env`:
-
-```
-DATABASE_URL=postgresql://usuario:senha@host:5432/postgres
-API_KEY=sua_chave_api_secreta
-```
-
-## Como instalar dependências
-
-```bash
-pip install -r requirements.txt
 ```
 
 ## Como rodar local
 
 ```bash
+cp .env.example .env
+# editar .env com DATABASE_URL e API_KEY
+pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-A API sobe em `http://localhost:8000`.
-
-## Como testar /health
+## Como rodar a suite de testes
 
 ```bash
-curl http://localhost:8000/health
+# 1. Sobe Postgres efêmero
+docker compose -f docker-compose.test.yml up -d
+
+# 2. Variável de teste
+export TEST_DATABASE_URL=postgresql://gojohnny:gojohnny@localhost:55432/gojohnny_test
+
+# 3. Dependências de dev
+pip install -r requirements-dev.txt
+
+# 4. Rodar
+pytest -v
 ```
 
-Resposta esperada:
+Resultado esperado: **102 passed**. Veja o detalhamento em `docs/QA_RELATORIO_FASE1.md`.
 
-```json
-{"status": "ok"}
-```
+## Deploy da Fase 1 em produção
 
-## Como testar /docs
+Siga o runbook em `docs/runbooks/rollback.md`. Resumo:
+1. Backup com `scripts/backup_pre_fase1.sh`.
+2. Aplicar `migrations/002_fase1_aditiva.sql`.
+3. Atualizar `requirements.txt` com `pip freeze` do ambiente atual.
+4. Push da branch `feat/fase-1`.
+5. Aplicar `docs/gpt_instructions.md` no Custom GPT, atualizar Actions com `openapi-gpt-actions.json`.
+6. Smoke test (ver runbook).
 
-Abra no navegador: `http://localhost:8000/docs`
+## Pendências para Fase 2
 
-O Swagger UI exibe todas as rotas disponíveis e permite testá-las diretamente.
+- Pinagem completa de `requirements.txt` (depende de `pip freeze` real de produção).
+- Ambiente de staging dedicado (Render branch + Supabase project paralelo).
+- Extração automática contínua de contexto a partir dos check-ins.
+- Integrações Google Calendar e Strava (flags já existem; lógica não).
+- Migrar para Alembic (atualmente migrations em SQL puro).
 
-## Exemplos curl
+## Variáveis de ambiente
 
-Substitua `SUA_API_KEY` pela chave definida no `.env`.
-
-### GET /health
-
-```bash
-curl http://localhost:8000/health
-```
-
-### POST /atletas
-
-```bash
-curl -X POST http://localhost:8000/atletas \
-  -H "x-api-key: SUA_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nome": "Larissa",
-    "apelido": "larissa",
-    "objetivo": "começar a correr com segurança",
-    "nivel": "iniciante",
-    "dias_treino": 3,
-    "altura_cm": 165,
-    "peso_kg": 60,
-    "pace_confortavel": null,
-    "maior_distancia_recente_km": null,
-    "historico_dores": null,
-    "tenis_disponiveis": null,
-    "proxima_prova": null,
-    "data_proxima_prova": null,
-    "distancia_alvo_km": null,
-    "observacoes": null
-  }'
-```
-
-### GET /atletas/johnny
-
-```bash
-curl http://localhost:8000/atletas/johnny \
-  -H "x-api-key: SUA_API_KEY"
-```
-
-### PATCH /atletas/johnny
-
-```bash
-curl -X PATCH http://localhost:8000/atletas/johnny \
-  -H "x-api-key: SUA_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"peso_kg": 72.5, "pace_confortavel": "6:15"}'
-```
-
-### POST /checkins
-
-```bash
-curl -X POST http://localhost:8000/checkins \
-  -H "x-api-key: SUA_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "apelido": "johnny",
-    "semana_inicio": "2026-04-27",
-    "treinos_planejados": 3,
-    "treinos_realizados": 3,
-    "volume_planejado_km": 25,
-    "volume_realizado_km": 24,
-    "pace_medio": "6:30",
-    "cansaco_0_10": 6,
-    "dores": "sem dor",
-    "sono": "bom",
-    "sensacao_geral": "semana adequada",
-    "observacoes": "longão feito bem"
-  }'
-```
-
-### GET /checkins/johnny
-
-```bash
-curl http://localhost:8000/checkins/johnny \
-  -H "x-api-key: SUA_API_KEY"
-```
-
-### POST /planos-semanais
-
-```bash
-curl -X POST http://localhost:8000/planos-semanais \
-  -H "x-api-key: SUA_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "apelido": "johnny",
-    "semana_inicio": "2026-04-27",
-    "objetivo_semana": "aumentar volume com segurança",
-    "volume_planejado_km": 28,
-    "status": "ativo",
-    "plano": {
-      "treinos": [
-        {
-          "dia": "terça",
-          "tipo": "leve",
-          "distancia_km": 6,
-          "intensidade": "confortável",
-          "objetivo": "manter base aeróbica"
-        }
-      ]
-    }
-  }'
-```
-
-### GET /planos-semanais/johnny/atual
-
-```bash
-curl http://localhost:8000/planos-semanais/johnny/atual \
-  -H "x-api-key: SUA_API_KEY"
-```
-
-## Como fazer deploy no Render
-
-1. Faça push do projeto para um repositório GitHub.
-2. Acesse [render.com](https://render.com) e crie um novo **Web Service**.
-3. Conecte ao repositório GitHub.
-4. O Render detecta o `render.yaml` automaticamente e configura o serviço.
-5. Configure as variáveis de ambiente conforme a seção abaixo.
-6. Clique em **Deploy**.
-
-## Variáveis de ambiente no Render
-
-No painel do Render, vá em **Environment** e adicione:
-
-| Variável       | Valor                                              |
-|----------------|----------------------------------------------------|
-| `DATABASE_URL` | URL de conexão do Supabase (modo pooler ou direto) |
-| `API_KEY`      | Chave secreta para autenticar as chamadas da API   |
-
-A URL do Supabase segue o formato:
-
-```
-postgresql://postgres.[ref]:[senha]@aws-0-[region].pooler.supabase.com:6543/postgres
-```
+| Variável            | Onde                | Para que                                     |
+|---------------------|---------------------|----------------------------------------------|
+| `DATABASE_URL`      | produção e dev      | Postgres do Supabase                         |
+| `API_KEY`           | produção e dev      | Auth `x-api-key` da API                      |
+| `TEST_DATABASE_URL` | testes              | Postgres efêmero do docker-compose.test.yml  |

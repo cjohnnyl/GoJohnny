@@ -21,10 +21,6 @@ class AtletaCreate(BaseModel):
     data_proxima_prova: Optional[date] = None
     distancia_alvo_km: Optional[Decimal] = None
     observacoes: Optional[str] = None
-    usar_datas_reais: Optional[bool] = False
-    usar_contexto_atleta: Optional[bool] = False
-    usar_google_calendar: Optional[bool] = False
-    usar_strava: Optional[bool] = False
 
 
 class AtletaUpdate(BaseModel):
@@ -43,31 +39,24 @@ class AtletaUpdate(BaseModel):
     data_proxima_prova: Optional[date] = None
     distancia_alvo_km: Optional[Decimal] = None
     observacoes: Optional[str] = None
-    usar_datas_reais: Optional[bool] = None
-    usar_contexto_atleta: Optional[bool] = None
-    usar_google_calendar: Optional[bool] = None
-    usar_strava: Optional[bool] = None
 
 
 class AtletaRead(AtletaUpdate):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    # Feature flags (Fase 1, Bloco 5)
+    usar_datas_reais: Optional[bool] = False
+    usar_contexto_atleta: Optional[bool] = False
+    usar_google_calendar: Optional[bool] = False
+    usar_strava: Optional[bool] = False
     criado_em: Optional[datetime] = None
     atualizado_em: Optional[datetime] = None
 
 
 class AtletaFlagsUpdate(BaseModel):
+    """Endpoint dedicado de feature flags - opt-in explicito."""
     usar_datas_reais: Optional[bool] = None
     usar_contexto_atleta: Optional[bool] = None
     usar_google_calendar: Optional[bool] = None
     usar_strava: Optional[bool] = None
-
-
-class AtletaFlags(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    usar_datas_reais: bool
-    usar_contexto_atleta: bool
-    usar_google_calendar: bool
-    usar_strava: bool
