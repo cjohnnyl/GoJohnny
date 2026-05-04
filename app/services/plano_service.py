@@ -6,6 +6,7 @@ Concentra:
   - aplicacao de defaults aditivos do Fase 1
   - logging estruturado de toda criacao/atualizacao
   - validacao basica antes de gravar
+  - enriquecimento de plano com datas reais (Fase 2, Etapa 1)
 
 Regra de protecao (decidida com Johnny):
   Se ja existe plano com status='ativo' para o atleta, a criacao de um
@@ -13,18 +14,29 @@ Regra de protecao (decidida com Johnny):
   servico levanta SobrescritaProtegida (a route mapeia para HTTP 409).
   Quando novo_ciclo=True, o plano anterior e marcado como 'arquivado'
   na MESMA transacao do novo plano. Nada e apagado.
+
+Enriquecimento de datas (Fase 2, Etapa 1):
+  Se a flag usar_datas_reais estiver ativa E houver data_inicio, data_prova
+  e dias_treino_json, o servico enriquece cada treino do plano com a data
+  correspondente em formato ISO 8601 ("2026-05-06").
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from datetime import date
+from typing import Any, Optional, Dict
 
 from sqlalchemy.orm import Session
 
 from app.models.atleta import Atleta
 from app.models.plano_semanal import PlanoSemanal
 from app.schemas.plano_semanal import PlanoSemanalCreate
+from app.services.calendar_engine import (
+    gerar_calendario,
+    normalizar_dia_da_semana,
+    nome_canonico_do_weekday,
+)
 
 
 logger = logging.getLogger("gojohnny.plano_service")
@@ -32,6 +44,71 @@ logger = logging.getLogger("gojohnny.plano_service")
 
 STATUS_ATIVO = "ativo"
 STATUS_ARQUIVADO = "arquivado"
+
+
+# Mapa de normalização: aceita português (com/sem acento), inglês (maiúscula/minúscula)
+# Sempre retorna formato interno: "segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo"
+_MAPA_NORMALIZACAO_DIAS: dict[str, str] = {
+    # português (sem acento - forma canônica)
+    "segunda": "segunda",
+    "terca": "terca",
+    "quarta": "quarta",
+    "quinta": "quinta",
+    "sexta": "sexta",
+    "sabado": "sabado",
+    "domingo": "domingo",
+
+    # português (com acento)
+    "terça": "terca",
+    "sábado": "sabado",
+
+    # inglês (lowercase)
+    "monday": "segunda",
+    "tuesday": "terca",
+    "wednesday": "quarta",
+    "thursday": "quinta",
+    "friday": "sexta",
+    "saturday": "sabado",
+    "sunday": "domingo",
+
+    # abreviações em português
+    "seg": "segunda",
+    "ter": "terca",
+    "qua": "quarta",
+    "qui": "quinta",
+    "sex": "sexta",
+    "sab": "sabado",
+    "dom": "domingo",
+
+    # abreviações em inglês
+    "mon": "segunda",
+    "tue": "terca",
+    "wed": "quarta",
+    "thu": "quinta",
+    "fri": "sexta",
+    "sat": "sabado",
+    "sun": "domingo",
+}
+
+
+def _normalizar_dia(dia: str) -> Optional[str]:
+    """Normaliza qualquer variante de dia da semana para forma canônica.
+
+    Aceita:
+      - português com acento: "terça", "sábado"
+      - português sem acento: "terca", "sabado"
+      - português abreviado: "ter", "sab"
+      - inglês maiúscula/minúscula: "Tuesday", "tuesday"
+      - inglês abreviado: "tue", "Tue"
+
+    Retorna sempre lowercase sem acento: "terca", "sabado", etc.
+    Retorna None se não reconhecer.
+    """
+    if not isinstance(dia, str):
+        return None
+
+    chave = dia.lower().strip()
+    return _MAPA_NORMALIZACAO_DIAS.get(chave)
 
 
 class SobrescritaProtegida(Exception):
@@ -71,6 +148,227 @@ def _detectar_versao_estrutura(data: PlanoSemanalCreate) -> int:
     if data.dias_treino_json:
         return 2
     return 1
+
+
+def _mapear_treinos_com_datas(
+    plano_jsonb: dict,
+    data_inicio: date,
+    data_prova: date,
+    dias_treino: list[str]
+) -> dict:
+    """Enriquece treinos do plano_jsonb com datas reais do calendario.
+
+    Lê cada treino em plano_jsonb['treinos'] e adiciona 'data' em ISO 8601.
+    Mapeia na ordem: 1º treino de "terça" pega 1ª terça do calendário, etc.
+
+    Se um treino não tiver dia_semana ou o dia não existir no calendário,
+    deixa sem data (treino recebe data=None).
+
+    Retorna uma cópia enriquecida de plano_jsonb.
+    """
+    logger.info(
+        "plano.mapear_treinos_iniciado data_inicio=%s data_prova=%s dias_treino=%s",
+        data_inicio, data_prova, dias_treino
+    )
+
+    # 0.5. Normalizar dias_treino para forma canônica ANTES de CalendarEngine
+    dias_treino_normalizados = []
+    for dia in dias_treino:
+        dia_normalizado = _normalizar_dia(dia)
+        if dia_normalizado is None:
+            logger.warning(
+                "plano.dia_nao_reconhecido_em_entrada dia=%s (pulando)",
+                dia
+            )
+            continue
+        dias_treino_normalizados.append(dia_normalizado)
+
+    if not dias_treino_normalizados:
+        logger.error(
+            "plano.nenhum_dia_valido_apos_normalizacao dias_original=%s",
+            dias_treino
+        )
+        return plano_jsonb  # Retorna sem enriquecimento se nenhum dia é válido
+
+    logger.info(
+        "plano.normalizacao_concluida dias_original=%s dias_normalizado=%s",
+        dias_treino, dias_treino_normalizados
+    )
+
+    # 1. Gerar calendário determinístico
+    try:
+        calendario = gerar_calendario(
+            data_inicio=data_inicio,
+            data_prova=data_prova,
+            dias_treino=dias_treino_normalizados
+        )
+        logger.info(
+            "plano.calendario_gerado dias_canonicos=%s total_treinos=%d",
+            calendario.dias_treino_canonicos, len(calendario.treinos)
+        )
+    except ValueError as e:
+        logger.warning(
+            "plano.enriquecimento_falhou_calendario motivo=%s", str(e)
+        )
+        return plano_jsonb  # Retorna sem enriquecimento se calendário falha
+
+    # 2. Copiar plano para não mutar original
+    plano_enriquecido = {}
+    for chave, valor in plano_jsonb.items():
+        if chave != "treinos":
+            plano_enriquecido[chave] = valor
+
+    # 3. Processar treinos
+    if "treinos" not in plano_jsonb or not plano_jsonb["treinos"]:
+        plano_enriquecido["treinos"] = []
+        return plano_enriquecido
+
+    treinos_originais = plano_jsonb["treinos"]
+    if not isinstance(treinos_originais, list):
+        logger.warning("plano.treinos_nao_e_lista tipo=%s", type(treinos_originais))
+        return plano_jsonb
+
+    # Track de quantos treinos de cada dia já foram mapeados
+    contadores_por_dia: dict[str, int] = {}
+    for dia in calendario.dias_treino_canonicos:
+        contadores_por_dia[dia] = 0
+
+    treinos_enriquecidos = []
+    for treino_orig in treinos_originais:
+        if not isinstance(treino_orig, dict):
+            treinos_enriquecidos.append(treino_orig)
+            continue
+
+        treino_copia = dict(treino_orig)
+
+        # Obter dia_semana do treino (pode vir como "dia_semana" ou "dia")
+        dia_str = treino_copia.get("dia_semana") or treino_copia.get("dia")
+        if not dia_str:
+            treinos_enriquecidos.append(treino_copia)
+            continue
+
+        # Normalizar dia (aceita português, inglês, acentos, abreviações)
+        dia_normalizado = _normalizar_dia(str(dia_str))
+        if dia_normalizado is None:
+            logger.warning(
+                "plano.dia_invalido_no_treino dia=%s (nao sera enriquecido)",
+                dia_str
+            )
+            treinos_enriquecidos.append(treino_copia)
+            continue
+
+        # Converter para weekday Python
+        try:
+            weekday = normalizar_dia_da_semana(dia_normalizado)
+            dia_canonico = nome_canonico_do_weekday(weekday)
+            logger.debug(
+                "plano.dia_normalizado entrada=%s weekday=%d canonico=%s",
+                dia_str, weekday, dia_canonico
+            )
+        except ValueError as ve:
+            logger.warning(
+                "plano.dia_nao_reconhecido dia=%s erro=%s", dia_str, str(ve)
+            )
+            treinos_enriquecidos.append(treino_copia)
+            continue
+
+        # Encontrar N-ésima ocorrência deste dia no calendário
+        indice = contadores_por_dia.get(dia_canonico, 0)
+        treinos_neste_dia = [
+            t for t in calendario.treinos if t.dia_semana == dia_canonico
+        ]
+
+        logger.debug(
+            "plano.mapeamento_dia dia_canonico=%s indice=%d total_neste_dia=%d "
+            "dias_disponveis=%s",
+            dia_canonico, indice, len(treinos_neste_dia),
+            [t.dia_semana for t in calendario.treinos[:5]]  # primeiros 5 para debug
+        )
+
+        if indice < len(treinos_neste_dia):
+            treino_calendario = treinos_neste_dia[indice]
+            treino_copia["data"] = treino_calendario.data.isoformat()
+            contadores_por_dia[dia_canonico] += 1
+            logger.info(
+                "plano.treino_enriquecido dia=%s data=%s indice=%d",
+                dia_canonico, treino_copia["data"], indice
+            )
+        else:
+            logger.warning(
+                "plano.dia_sem_mapeamento dia=%s indice=%d total=%d "
+                "(nao ha treinos suficientes)",
+                dia_canonico, indice, len(treinos_neste_dia)
+            )
+
+        treinos_enriquecidos.append(treino_copia)
+
+    plano_enriquecido["treinos"] = treinos_enriquecidos
+    return plano_enriquecido
+
+
+def enriquecer_plano_com_datas(
+    plano_jsonb: dict,
+    atleta: Atleta,
+    data_inicio: Optional[date],
+    data_prova: Optional[date],
+    dias_treino_json: Optional[list[str]],
+    usar_datas_reais: Optional[bool] = None
+) -> dict:
+    """Enriquece plano com datas reais se flag ativo e dados disponíveis.
+
+    Lógica de flag:
+      1. Se usar_datas_reais (param) é explícito, usa esse valor
+      2. Senão, usa atleta.usar_datas_reais
+      3. Se flag False, retorna plano intocado (versão 1)
+
+    Validação de pré-requisitos:
+      - Flag deve estar True
+      - data_inicio, data_prova e dias_treino_json devem estar presentes
+      - plano deve ter lista "treinos"
+
+    Se qualquer validação falhar, retorna plano original (sem erro).
+    """
+    # 1. Resolver flag: param > atleta.usar_datas_reais > False
+    flag_ativo = (
+        usar_datas_reais
+        if usar_datas_reais is not None
+        else atleta.usar_datas_reais
+    )
+
+    # 2. Validar pré-requisitos
+    if not flag_ativo:
+        logger.debug("plano.enriquecimento_desativado apelido=%s", atleta.apelido)
+        return plano_jsonb
+
+    if not data_inicio or not data_prova or not dias_treino_json:
+        logger.debug(
+            "plano.enriquecimento_dados_incompletos apelido=%s "
+            "data_inicio=%s data_prova=%s dias_treino=%s",
+            atleta.apelido, data_inicio, data_prova,
+            "presente" if dias_treino_json else "ausente"
+        )
+        return plano_jsonb
+
+    if not isinstance(plano_jsonb, dict) or "treinos" not in plano_jsonb:
+        logger.debug(
+            "plano.enriquecimento_sem_treinos apelido=%s", atleta.apelido
+        )
+        return plano_jsonb
+
+    # 3. Enriquecer
+    logger.info(
+        "plano.enriquecimento_iniciado apelido=%s data_inicio=%s data_prova=%s",
+        atleta.apelido, data_inicio, data_prova
+    )
+
+    plano_enriquecido = _mapear_treinos_com_datas(
+        plano_jsonb, data_inicio, data_prova, dias_treino_json
+    )
+
+    logger.info(
+        "plano.enriquecimento_concluido apelido=%s", atleta.apelido
+    )
+    return plano_enriquecido
 
 
 def criar_plano(
@@ -113,6 +411,16 @@ def criar_plano(
     payload = data.model_dump(exclude={"apelido", "novo_ciclo"})
     payload["status"] = data.status or STATUS_ATIVO
     payload["versao_estrutura"] = _detectar_versao_estrutura(data)
+
+    # NOVO: Enriquecer plano com datas se flag ativo (Fase 2, Etapa 1)
+    payload["plano"] = enriquecer_plano_com_datas(
+        plano_jsonb=payload["plano"],
+        atleta=atleta,
+        data_inicio=data.data_inicio,
+        data_prova=data.data_prova,
+        dias_treino_json=data.dias_treino_json,
+        usar_datas_reais=None  # Usa flag do atleta (já detectado acima)
+    )
 
     plano = PlanoSemanal(atleta_id=atleta.id, **payload)
     db.add(plano)
