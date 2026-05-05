@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import atletas, checkins, planos_semanais, sessao, contexto, calendario
+from app.routes import atletas, checkins, planos_semanais, sessao, contexto, calendario, oauth
 
 app = FastAPI(
     title="GoJohnny API",
@@ -22,6 +22,7 @@ app.include_router(checkins.router)
 app.include_router(planos_semanais.router)
 app.include_router(contexto.router)
 app.include_router(calendario.router)
+app.include_router(oauth.router)
 
 
 @app.get("/")
