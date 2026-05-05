@@ -13,7 +13,7 @@ Responsabilidades:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import uuid
 
@@ -21,6 +21,18 @@ from sqlalchemy.orm import Session
 
 from app.models.atleta import Atleta
 from app.models.integracao_google import IntegracaoGoogle
+
+
+def _agora_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _normalizar_datetime_utc(valor: Optional[datetime]) -> Optional[datetime]:
+    if valor is None:
+        return None
+    if valor.tzinfo is None:
+        return valor.replace(tzinfo=timezone.utc)
+    return valor.astimezone(timezone.utc)
 
 
 def salvar_tokens(
@@ -50,7 +62,7 @@ def salvar_tokens(
         raise ValueError("access_token nao pode ser vazio")
 
     # Calcular expires_at
-    expires_at = datetime.utcnow() + timedelta(seconds=expires_in_seconds)
+    expires_at = _agora_utc() + timedelta(seconds=expires_in_seconds)
 
     # Verificar se ja existe integracao para este atleta
     existente = (
@@ -65,7 +77,7 @@ def salvar_tokens(
         existente.refresh_token = refresh_token
         existente.expires_at = expires_at
         existente.email_google = email_google or existente.email_google
-        existente.atualizado_em = datetime.utcnow()
+        existente.atualizado_em = _agora_utc()
         db.add(existente)
     else:
         # Criar nova integracao
@@ -118,9 +130,10 @@ def obter_access_token_valido(
         return None
 
     # Verificar expiracao (com margem de 60 segundos de segurança)
-    if integracao.expires_at:
-        margem = datetime.utcnow() + timedelta(seconds=60)
-        if integracao.expires_at <= margem:
+    expires_at = _normalizar_datetime_utc(integracao.expires_at)
+    if expires_at:
+        margem = _agora_utc() + timedelta(seconds=60)
+        if expires_at <= margem:
             return None
 
     return integracao.access_token
@@ -172,25 +185,26 @@ def verificar_expiracao(
             "tempo_restante_segundos": None,
         }
 
-    agora = datetime.utcnow()
+    agora = _agora_utc()
     margem = agora + timedelta(seconds=60)
+    expires_at = _normalizar_datetime_utc(integracao.expires_at)
 
-    if integracao.expires_at and integracao.expires_at <= margem:
+    if expires_at and expires_at <= margem:
         return {
             "valido": False,
-            "expira_em": integracao.expires_at,
+            "expira_em": expires_at,
             "tempo_restante_segundos": int(
-                (integracao.expires_at - agora).total_seconds()
+                (expires_at - agora).total_seconds()
             ),
         }
 
     tempo_restante = None
-    if integracao.expires_at:
-        tempo_restante = int((integracao.expires_at - agora).total_seconds())
+    if expires_at:
+        tempo_restante = int((expires_at - agora).total_seconds())
 
     return {
         "valido": True,
-        "expira_em": integracao.expires_at,
+        "expira_em": expires_at,
         "tempo_restante_segundos": tempo_restante,
     }
 

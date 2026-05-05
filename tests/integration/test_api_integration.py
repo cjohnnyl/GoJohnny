@@ -196,7 +196,7 @@ class TestCenarioE_PlanoEnriquecido:
         body = r.json()
         assert body["data_inicio"] == "2026-05-04"
         assert body["data_prova"] == "2026-09-15"
-        assert body["dias_treino_json"] == ["terça", "quinta", "sábado"]
+        assert body["dias_treino_json"] == ["terca", "quinta", "sabado"]
         assert body["versao_estrutura"] == 2  # heuristica detectou
 
 

@@ -1,14 +1,20 @@
-"""Routes de calendário e eventos — ETAPA 3, FASE 3.1 e 3.2."""
+"""Routes de calendario e eventos - ETAPA 3, FASE 3.1, 3.2 e BLOCO 3."""
 
 import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
 from app.core.auth import verify_api_key
+from app.core.database import get_db
 from app.models.atleta import Atleta
-from app.schemas.evento import CalendarioPreview
+from app.schemas.evento import CalendarioPreview, CalendarioPublicacaoResponse
 from app.services.evento_service import listar_eventos_atleta
+from app.services.google_calendar_service import (
+    PublicacaoCalendarioConfigError,
+    publicar_eventos_atleta,
+)
+
 
 logger = logging.getLogger("gojohnny.routes.calendario")
 
@@ -19,25 +25,9 @@ router = APIRouter(prefix="/calendario", tags=["calendario"])
 def preview_calendario(
     apelido: str,
     db: Session = Depends(get_db),
-    _: str = Depends(verify_api_key)
+    _: str = Depends(verify_api_key),
 ) -> CalendarioPreview:
-    """Preview do calendário de eventos para um atleta.
-
-    FASE 3.2 - Simulação de calendário sem integração com Google.
-
-    Query:
-        GET /calendario/{apelido}/preview
-
-    Response:
-        CalendarioPreview com lista de eventos ordenados por data.
-
-    Comportamento:
-    - Busca plano ativo do atleta
-    - Aplica contexto do usuário (horário preferido, dias)
-    - Gera eventos estruturados
-    - Retorna preview sem persistência
-    """
-    # Buscar atleta
+    """Preview do calendario de eventos para um atleta."""
     atleta = (
         db.query(Atleta)
         .filter(Atleta.apelido.ilike(apelido))
@@ -48,27 +38,80 @@ def preview_calendario(
         logger.warning("calendario.atleta_nao_encontrado apelido=%s", apelido)
         raise HTTPException(
             status_code=404,
-            detail=f"Atleta '{apelido}' não encontrado"
+            detail=f"Atleta '{apelido}' nao encontrado",
         )
 
-    # Gerar preview
     try:
         preview = listar_eventos_atleta(
             db=db,
             atleta=atleta,
-            usar_fallback_contexto=True
+            usar_fallback_contexto=True,
         )
         logger.info(
             "calendario.preview_gerado apelido=%s total_eventos=%d",
-            apelido, preview.total_eventos
+            apelido,
+            preview.total_eventos,
         )
         return preview
-    except Exception as e:
+    except Exception as exc:
         logger.error(
             "calendario.erro_ao_gerar_preview apelido=%s erro=%s",
-            apelido, str(e)
+            apelido,
+            str(exc),
         )
         raise HTTPException(
             status_code=500,
-            detail="Erro ao gerar preview do calendário"
+            detail="Erro ao gerar preview do calendario",
+        )
+
+
+@router.post("/{apelido}/publicar", response_model=CalendarioPublicacaoResponse)
+async def publicar_calendario(
+    apelido: str,
+    db: Session = Depends(get_db),
+    _: str = Depends(verify_api_key),
+) -> CalendarioPublicacaoResponse:
+    """Publica eventos reais do plano ativo no Google Calendar."""
+    atleta = (
+        db.query(Atleta)
+        .filter(Atleta.apelido == apelido)
+        .first()
+    )
+
+    if not atleta:
+        logger.warning("calendario.publicar_atleta_nao_encontrado apelido=%s", apelido)
+        raise HTTPException(
+            status_code=404,
+            detail=f"Atleta '{apelido}' nao encontrado",
+        )
+
+    try:
+        resultado = await publicar_eventos_atleta(db=db, atleta=atleta)
+        logger.info(
+            "calendario.publicacao_concluida apelido=%s criados=%d ignorados=%d erros=%d",
+            apelido,
+            resultado.eventos_criados,
+            resultado.eventos_ignorados,
+            len(resultado.erros),
+        )
+        return resultado
+    except PublicacaoCalendarioConfigError as exc:
+        logger.error(
+            "calendario.publicacao_config_invalida apelido=%s detalhe=%s",
+            apelido,
+            str(exc),
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Configuracao Google incompleta: {str(exc)}",
+        )
+    except Exception as exc:
+        logger.exception(
+            "calendario.publicacao_erro apelido=%s erro=%s",
+            apelido,
+            str(exc),
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Erro ao publicar eventos no Google Calendar",
         )

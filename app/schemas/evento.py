@@ -33,3 +33,12 @@ class CalendarioPreview(BaseModel):
     eventos: list[EventoTreinoRead] = Field(default_factory=list)
     periodo_inicio: Optional[date] = None
     periodo_fim: Optional[date] = None
+
+
+class CalendarioPublicacaoResponse(BaseModel):
+    """Resumo da publicacao real de eventos no Google Calendar."""
+    publicado: bool
+    motivo: Optional[str] = None
+    eventos_criados: int
+    eventos_ignorados: int
+    erros: list[str] = Field(default_factory=list)
