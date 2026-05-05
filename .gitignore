@@ -14,3 +14,7 @@ build/
 backups/
 /tmp/
 .coverage
+
+# IDE e local config
+.claude/
+*.log
