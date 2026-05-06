@@ -2,7 +2,7 @@
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 
 from app.core.auth import verify_api_key
@@ -24,7 +24,7 @@ router = APIRouter(
 
 
 @router.post("", response_model=PlanoSemanalRead, status_code=201)
-def create_plano(data: PlanoSemanalCreate, db: Session = Depends(get_db)):
+def create_plano(data: PlanoSemanalCreate = Body(...), db: Session = Depends(get_db)):
     atleta = get_atleta_by_apelido(db, data.apelido)
     try:
         plano = criar_plano(db, atleta, data)
