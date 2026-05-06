@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 
 from app.models.atleta import Atleta
 from app.models.plano_semanal import PlanoSemanal
+from app.schemas.atleta_memoria import AtletaMemoriaCreate
 from app.schemas.plano_semanal import PlanoSemanalCreate
 from app.services.calendar_engine import (
     gerar_calendario,
@@ -43,7 +44,7 @@ logger = logging.getLogger("gojohnny.plano_service")
 
 
 STATUS_ATIVO = "ativo"
-STATUS_ARQUIVADO = "arquivado"
+STATUS_SUBSTITUIDO = "substituido"
 
 
 # Mapa de normalização: aceita português (com/sem acento), inglês (maiúscula/minúscula)
@@ -398,12 +399,12 @@ def criar_plano(
                 plano_atual_id=str(plano_ativo_existente.id),
                 semana_inicio=str(plano_ativo_existente.semana_inicio),
             )
-        # Arquiva o anterior na MESMA transacao - sem deletar dados.
-        plano_ativo_existente.status = STATUS_ARQUIVADO
+        # Marca como substituido na MESMA transacao - sem deletar dados.
+        plano_ativo_existente.status = STATUS_SUBSTITUIDO
         db.add(plano_ativo_existente)
         logger.info(
-            "plano.arquivado_para_novo_ciclo apelido=%s atleta_id=%s "
-            "plano_arquivado_id=%s",
+            "plano.substituido_para_novo_ciclo apelido=%s atleta_id=%s "
+            "plano_substituido_id=%s",
             atleta.apelido, atleta.id, plano_ativo_existente.id,
         )
 
@@ -439,3 +440,125 @@ def criar_plano(
 def detectar_versao_estrutura(data: PlanoSemanalCreate) -> int:
     """Wrapper publico para teste unitario do detector."""
     return _detectar_versao_estrutura(data)
+
+
+# ---------------------------------------------------------------------------
+# Exceções da lógica adaptativa
+# ---------------------------------------------------------------------------
+
+class PlanoAtivoNaoEncontrado(Exception):
+    def __init__(self, apelido: str):
+        self.apelido = apelido
+        super().__init__(f"Atleta '{apelido}' não tem plano ativo.")
+
+
+# ---------------------------------------------------------------------------
+# Helper interno: salvar memória de ajuste/substituição
+# ---------------------------------------------------------------------------
+
+def _salvar_memoria_ajuste(
+    db: Session,
+    atleta: Atleta,
+    motivo: str,
+    tipo: str = "ajuste_plano",
+) -> dict:
+    from datetime import date as _date
+    from app.services.memoria_service import salvar_memoria as _salvar_memoria
+
+    chave = f"ajuste_plano_{_date.today().isoformat()}"
+    dados = AtletaMemoriaCreate(
+        tipo=tipo,
+        chave=chave,
+        valor_texto=motivo,
+        origem="feedback_atleta",
+        importancia=5,
+        confianca=1.0,
+    )
+    return _salvar_memoria(db, str(atleta.id), dados)
+
+
+# ---------------------------------------------------------------------------
+# Atualização parcial do plano ativo (PATCH)
+# ---------------------------------------------------------------------------
+
+def atualizar_plano_ativo(
+    db: Session,
+    atleta: Atleta,
+    dados: Any,  # PlanoSemanalUpdate — import circular evitado com Any
+) -> PlanoSemanal:
+    """Aplica patch parcial no plano ativo do atleta.
+
+    Levanta PlanoAtivoNaoEncontrado se não houver plano ativo.
+    Se dados.motivo_revisao estiver presente e dados.salvar_memoria=True,
+    salva memória do tipo ajuste_plano automaticamente.
+    """
+    plano = _plano_ativo_de(db, atleta.id)
+    if plano is None:
+        raise PlanoAtivoNaoEncontrado(atleta.apelido)
+
+    campos = dados.model_dump(
+        exclude={"motivo_revisao", "salvar_memoria"},
+        exclude_unset=True,
+    )
+    for campo, valor in campos.items():
+        setattr(plano, campo, valor)
+
+    db.commit()
+    db.refresh(plano)
+
+    if getattr(dados, "motivo_revisao", None) and getattr(dados, "salvar_memoria", True):
+        _salvar_memoria_ajuste(db, atleta, dados.motivo_revisao)
+
+    logger.info(
+        "plano.atualizado apelido=%s atleta_id=%s plano_id=%s campos=%s",
+        atleta.apelido, atleta.id, plano.id, list(campos.keys()),
+    )
+    return plano
+
+
+# ---------------------------------------------------------------------------
+# Substituição do plano ativo (POST /substituir-atual)
+# ---------------------------------------------------------------------------
+
+def substituir_plano_ativo(
+    db: Session,
+    atleta: Atleta,
+    dados: Any,  # SubstituirPlanoPayload — import circular evitado com Any
+) -> dict:
+    """Marca o plano ativo como substituido e cria novo plano ativo.
+
+    Levanta PlanoAtivoNaoEncontrado se não houver plano ativo.
+    Se dados.motivo_substituicao estiver presente, salva memória
+    do tipo decisao_treinador automaticamente.
+
+    Retorna dict com plano_anterior, novo_plano e memoria_salva.
+    """
+    plano_anterior = _plano_ativo_de(db, atleta.id)
+    if plano_anterior is None:
+        raise PlanoAtivoNaoEncontrado(atleta.apelido)
+
+    plano_anterior.status = STATUS_SUBSTITUIDO
+    db.add(plano_anterior)
+
+    payload = dados.model_dump(exclude={"motivo_substituicao"})
+    payload["status"] = STATUS_ATIVO
+    payload["versao_estrutura"] = dados.versao_estrutura or 2
+
+    novo = PlanoSemanal(atleta_id=atleta.id, **payload)
+    db.add(novo)
+    db.commit()
+    db.refresh(plano_anterior)
+    db.refresh(novo)
+
+    memoria = None
+    if getattr(dados, "motivo_substituicao", None):
+        memoria = _salvar_memoria_ajuste(
+            db, atleta, dados.motivo_substituicao, tipo="decisao_treinador"
+        )
+
+    logger.info(
+        "plano.substituido apelido=%s atleta_id=%s "
+        "plano_anterior_id=%s novo_plano_id=%s",
+        atleta.apelido, atleta.id, plano_anterior.id, novo.id,
+    )
+    return {"plano_anterior": plano_anterior, "novo_plano": novo, "memoria_salva": memoria}

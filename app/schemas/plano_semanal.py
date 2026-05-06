@@ -82,3 +82,45 @@ class PlanoSemanalRead(BaseModel):
     def normalizar_dias_saida(cls, v: Optional[List[str]]) -> Optional[List[str]]:
         """Normaliza dias_treino_json na saída para garantir consistência."""
         return _normalizar_dias(v)
+
+
+class PlanoSemanalUpdate(BaseModel):
+    """Payload parcial para PATCH /planos-semanais/{apelido}/atual."""
+
+    objetivo_semana: Optional[str] = None
+    volume_planejado_km: Optional[Decimal] = None
+    dias_treino_json: Optional[List[str]] = None
+    plano: Optional[Any] = None
+    motivo_revisao: Optional[str] = None
+    salvar_memoria: bool = True
+
+    @field_validator("dias_treino_json", mode="after")
+    @classmethod
+    def normalizar_dias_update(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        return _normalizar_dias(v)
+
+
+class SubstituirPlanoPayload(BaseModel):
+    """Payload para POST /planos-semanais/{apelido}/substituir-atual."""
+
+    motivo_substituicao: Optional[str] = None
+    semana_inicio: date
+    objetivo_semana: Optional[str] = None
+    volume_planejado_km: Optional[Decimal] = None
+    status: str = "ativo"
+    dias_treino_json: Optional[List[str]] = None
+    versao_estrutura: Optional[int] = None
+    plano: Any
+
+    @field_validator("dias_treino_json", mode="after")
+    @classmethod
+    def normalizar_dias_substituir(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        return _normalizar_dias(v)
+
+
+class SubstituirPlanoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    plano_anterior: PlanoSemanalRead
+    novo_plano: PlanoSemanalRead
+    memoria_salva: Optional[Any] = None

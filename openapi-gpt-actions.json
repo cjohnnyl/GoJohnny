@@ -232,7 +232,7 @@
       "post": {
         "operationId": "criarPlano",
         "summary": "Criar plano semanal",
-        "description": "Cria um novo plano de treino para um atleta. Se já existe plano ativo, use novo_ciclo=true para arquivar o anterior.",
+        "description": "Cria um novo plano de treino para um atleta. Se já existe plano ativo, use novo_ciclo=true para substituir o anterior (plano anterior fica com status 'substituido', não é apagado).",
         "tags": [
           "Planos"
         ],
@@ -298,6 +298,96 @@
           },
           "404": {
             "description": "Atleta não encontrado ou sem plano ativo"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "atualizarPlanoAtual",
+        "summary": "Atualizar parcialmente o plano ativo",
+        "description": "Aplica patch parcial no plano ativo do atleta. Preserva campos não enviados. Se motivo_revisao estiver presente e salvar_memoria=true, salva memória do tipo ajuste_plano automaticamente.",
+        "tags": [
+          "Planos"
+        ],
+        "parameters": [
+          {
+            "name": "apelido",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Apelido do atleta"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanoSemanalUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plano ativo atualizado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanoSemanalRead"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Atleta não encontrado ou sem plano ativo"
+          }
+        }
+      }
+    },
+    "/planos-semanais/{apelido}/substituir-atual": {
+      "post": {
+        "operationId": "substituirPlanoAtual",
+        "summary": "Substituir plano ativo por novo plano",
+        "description": "Marca o plano ativo como 'substituido' e cria novo plano ativo. Se motivo_substituicao estiver presente, salva memória do tipo decisao_treinador automaticamente. Retorna plano_anterior, novo_plano e memoria_salva.",
+        "tags": [
+          "Planos"
+        ],
+        "parameters": [
+          {
+            "name": "apelido",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Apelido do atleta"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubstituirPlanoPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Plano substituído com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubstituirPlanoResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Atleta não encontrado ou sem plano ativo para substituir"
           }
         }
       }
@@ -1050,7 +1140,7 @@
           },
           "novo_ciclo": {
             "type": "boolean",
-            "description": "Se true, arquiva plano anterior e inicia novo ciclo",
+            "description": "Se true, substitui plano anterior (status vira 'substituido') e inicia novo ciclo. Sem este flag, retorna 409 se já houver plano ativo.",
             "default": false
           },
           "status": {
@@ -1100,9 +1190,13 @@
             "type": "string",
             "enum": [
               "ativo",
-              "arquivado"
+              "substituido",
+              "concluido",
+              "cancelado",
+              "rascunho",
+              "inativo"
             ],
-            "description": "ativo = plano atual, arquivado = plano anterior"
+            "description": "ativo = plano atual, substituido = trocado por outro, concluido = encerrado normalmente, cancelado = interrompido, rascunho = gerado mas não confirmado"
           },
           "plano": {
             "type": "object",
@@ -1530,6 +1624,99 @@
             "type": "integer"
           }
         }
+      },
+      "PlanoSemanalUpdate": {
+        "type": "object",
+        "description": "Payload parcial para PATCH /planos-semanais/{apelido}/atual. Apenas campos enviados são atualizados.",
+        "properties": {
+          "objetivo_semana": {
+            "type": "string"
+          },
+          "volume_planejado_km": {
+            "type": "number"
+          },
+          "dias_treino_json": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Dias de treino (quarta, sexta, domingo, etc.)"
+          },
+          "plano": {
+            "type": "object",
+            "description": "Estrutura JSON completa do plano revisado"
+          },
+          "motivo_revisao": {
+            "type": "string",
+            "description": "Motivo da revisão (ex: atleta relatou dor no joelho). Se presente e salvar_memoria=true, gera memória automática."
+          },
+          "salvar_memoria": {
+            "type": "boolean",
+            "default": true,
+            "description": "Se true e motivo_revisao presente, salva memória de ajuste_plano"
+          }
+        }
+      },
+      "SubstituirPlanoPayload": {
+        "type": "object",
+        "description": "Payload para POST /planos-semanais/{apelido}/substituir-atual. Substitui o plano ativo por novo plano.",
+        "properties": {
+          "motivo_substituicao": {
+            "type": "string",
+            "description": "Motivo da substituição (ex: atleta relatou dor e pediu redução de carga). Gera memória decisao_treinador automaticamente."
+          },
+          "semana_inicio": {
+            "type": "string",
+            "format": "date",
+            "description": "Data de início do novo plano (YYYY-MM-DD)"
+          },
+          "objetivo_semana": {
+            "type": "string"
+          },
+          "volume_planejado_km": {
+            "type": "number"
+          },
+          "dias_treino_json": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "versao_estrutura": {
+            "type": "integer",
+            "description": "Versão da estrutura do plano (padrão: 2)"
+          },
+          "plano": {
+            "type": "object",
+            "description": "Estrutura JSON completa do novo plano"
+          }
+        },
+        "required": [
+          "semana_inicio",
+          "plano"
+        ]
+      },
+      "SubstituirPlanoResponse": {
+        "type": "object",
+        "description": "Resposta de POST /planos-semanais/{apelido}/substituir-atual",
+        "properties": {
+          "plano_anterior": {
+            "$ref": "#/components/schemas/PlanoSemanalRead",
+            "description": "Plano que foi marcado como 'substituido'"
+          },
+          "novo_plano": {
+            "$ref": "#/components/schemas/PlanoSemanalRead",
+            "description": "Novo plano ativo criado"
+          },
+          "memoria_salva": {
+            "type": "object",
+            "description": "Memória salva automaticamente a partir do motivo_substituicao (null se não houver motivo)"
+          }
+        },
+        "required": [
+          "plano_anterior",
+          "novo_plano"
+        ]
       }
     }
   }
