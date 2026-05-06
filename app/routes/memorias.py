@@ -7,7 +7,7 @@ GET /memorias/{apelido}/buscar - Buscar por texto
 POST /memorias/{apelido}/resumo-semanal - Salvar resumo semanal
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 
 from app.core.auth import verify_api_key
@@ -41,7 +41,7 @@ router = APIRouter(
 )
 def post_salvar_memoria(
     apelido: str,
-    dados: AtletaMemoriaCreate,
+    dados: AtletaMemoriaCreate = Body(...),
     db: Session = Depends(get_db),
 ):
     """Salva memória do atleta, evitando duplicatas idênticas."""
@@ -105,7 +105,7 @@ def get_buscar_memorias(
 )
 def post_salvar_resumo_semanal(
     apelido: str,
-    dados: ResumoSemanalCreate,
+    dados: ResumoSemanalCreate = Body(...),
     db: Session = Depends(get_db),
 ):
     """Registra resumo fechado da semana."""
