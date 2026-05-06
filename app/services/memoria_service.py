@@ -60,7 +60,7 @@ def salvar_memoria(
         return {
             "id": str(existente.id),
             "status": "atualizado",
-            "memoria": AtletaMemoriaRead.model_validate(existente).model_dump(),
+            "memoria": AtletaMemoriaRead.model_validate(existente).model_dump(mode="json"),
         }
 
     # Criar nova memória
@@ -82,7 +82,7 @@ def salvar_memoria(
     return {
         "id": str(memoria.id),
         "status": "criado",
-        "memoria": AtletaMemoriaRead.model_validate(memoria).model_dump(),
+        "memoria": AtletaMemoriaRead.model_validate(memoria).model_dump(mode="json"),
     }
 
 
@@ -113,7 +113,7 @@ def buscar_resumo_memorias(
         .all()
     )
 
-    return [AtletaMemoriaRead.model_validate(m).model_dump() for m in memorias]
+    return [AtletaMemoriaRead.model_validate(m).model_dump(mode="json") for m in memorias]
 
 
 def buscar_memorias_por_texto(
@@ -139,7 +139,7 @@ def buscar_memorias_por_texto(
     total = query.count()
     memorias = query.order_by(AtletaMemoria.atualizado_em.desc()).limit(limite).all()
 
-    return [AtletaMemoriaRead.model_validate(m).model_dump() for m in memorias], total
+    return [AtletaMemoriaRead.model_validate(m).model_dump(mode="json") for m in memorias], total
 
 
 def buscar_resumo_semanal(
@@ -162,7 +162,7 @@ def buscar_resumo_semanal(
     )
 
     if memoria:
-        return AtletaMemoriaRead.model_validate(memoria).model_dump()
+        return AtletaMemoriaRead.model_validate(memoria).model_dump(mode="json")
     return None
 
 
@@ -185,7 +185,7 @@ def buscar_ultima_semana(
     )
 
     if memoria:
-        return AtletaMemoriaRead.model_validate(memoria).model_dump()
+        return AtletaMemoriaRead.model_validate(memoria).model_dump(mode="json")
     return None
 
 
@@ -245,7 +245,7 @@ def salvar_resumo_semanal(
     return {
         "id": str(memoria.id),
         "status": status,
-        "memoria": AtletaMemoriaRead.model_validate(memoria).model_dump(),
+        "memoria": AtletaMemoriaRead.model_validate(memoria).model_dump(mode="json"),
     }
 
 
@@ -305,7 +305,7 @@ def buscar_memorias_para_contexto(
 
     return {
         "ultima_semana": ultima_semana,
-        "alertas_treinador": [AtletaMemoriaRead.model_validate(a).model_dump() for a in alertas],
-        "preferencias": [AtletaMemoriaRead.model_validate(p).model_dump() for p in preferencias],
-        "objetivo": AtletaMemoriaRead.model_validate(objetivo).model_dump() if objetivo else None,
+        "alertas_treinador": [AtletaMemoriaRead.model_validate(a).model_dump(mode="json") for a in alertas],
+        "preferencias": [AtletaMemoriaRead.model_validate(p).model_dump(mode="json") for p in preferencias],
+        "objetivo": AtletaMemoriaRead.model_validate(objetivo).model_dump(mode="json") if objetivo else None,
     }

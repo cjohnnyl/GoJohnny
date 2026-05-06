@@ -1,6 +1,7 @@
 from typing import Optional, List, Any
 from datetime import datetime, date
-from pydantic import BaseModel, Field
+from uuid import UUID
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class AtletaMemoriaCreate(BaseModel):
@@ -23,21 +24,21 @@ class AtletaMemoriaUpdate(BaseModel):
 
 
 class AtletaMemoriaRead(BaseModel):
-    id: str
-    atleta_id: str
+    id: UUID
+    atleta_id: UUID
     tipo: str
     chave: str
-    valor_texto: Optional[str]
-    valor_json: Optional[dict[str, Any]]
+    valor_texto: Optional[str] = None
+    valor_json: Optional[dict[str, Any]] = None
     origem: str
     importancia: int
     confianca: float
-    semana_inicio: Optional[date]
+    semana_inicio: Optional[date] = None
     ativo: bool
     criado_em: datetime
-    atualizado_em: datetime
+    atualizado_em: Optional[datetime] = None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ResumoSemanalCreate(BaseModel):
@@ -51,18 +52,18 @@ class ResumoSemanalCreate(BaseModel):
 
 
 class ResumoSemanalRead(BaseModel):
-    id: str
-    atleta_id: str
+    id: UUID
+    atleta_id: UUID
     semana_inicio: date
     resumo: str
     aderencia: str
-    pontos_positivos: List[str]
-    pontos_atencao: List[str]
-    decisoes_treinador: List[str]
-    proximo_foco: Optional[str]
+    pontos_positivos: List[str] = []
+    pontos_atencao: List[str] = []
+    decisoes_treinador: List[str] = []
+    proximo_foco: Optional[str] = None
     criado_em: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MemoriasResumoResponse(BaseModel):
