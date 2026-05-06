@@ -82,11 +82,11 @@ def iniciar_sessao(db: Session, *, apelido: str) -> dict:
 
     # Enriquecer contexto_resumo com memórias
     contexto_enriched = {
-        **contexto,
         "memorias_relevantes": memorias_contexto.get("alertas_treinador", []),
         "ultima_semana": memorias_contexto.get("ultima_semana"),
         "alertas_treinador": [m["valor_texto"] for m in memorias_contexto.get("alertas_treinador", []) if m.get("valor_texto")],
         "preferencias": memorias_contexto.get("preferencias", []),
+        "objetivo": memorias_contexto.get("objetivo"),
     }
 
     instrucao = (

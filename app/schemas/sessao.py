@@ -30,13 +30,39 @@ class FlagsResponse(BaseModel):
     usar_strava: bool = False
 
 
+class ContextoResumo(BaseModel):
+    """Contexto enriquecido de memórias para o início da sessão."""
+    model_config = ConfigDict(from_attributes=True)
+
+    memorias_relevantes: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Memórias mais relevantes do atleta (alertas/orientações)"
+    )
+    ultima_semana: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Resumo semanal mais recente se existir"
+    )
+    alertas_treinador: list[str] = Field(
+        default_factory=list,
+        description="Lista de alertas textuais do treinador"
+    )
+    preferencias: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Preferências do atleta"
+    )
+    objetivo: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Objetivo principal do atleta se existir"
+    )
+
+
 class SessaoIniciarResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     status: Literal["novo", "existente"]
     atleta: Optional[AtletaRead] = None
     plano_atual: Optional[PlanoSemanalRead] = None
-    contexto_resumo: dict[str, dict[str, str]] = Field(default_factory=dict)
+    contexto_resumo: ContextoResumo = Field(default_factory=ContextoResumo)
     flags: FlagsResponse
     instrucao_continuacao: str = Field(
         description=(
