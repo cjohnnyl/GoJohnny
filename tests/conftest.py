@@ -53,6 +53,7 @@ def test_engine():
     import app.models.contexto_atleta   # noqa: F401
     import app.models.integracao_google # noqa: F401
     import app.models.evento_google_publicado  # noqa: F401
+    import app.models.atleta_memoria    # noqa: F401
 
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)

@@ -2,42 +2,51 @@
   "openapi": "3.1.0",
   "info": {
     "title": "GoJohnny API",
-    "description": "Consultoria pessoal de corrida com IA",
-    "version": "1.1.0"
+    "description": "Consultoria pessoal de corrida com IA. Schema otimizado para Custom GPT Actions.",
+    "version": "2.0.0"
   },
+  "servers": [
+    {
+      "url": "https://gojohnny.onrender.com",
+      "description": "Production"
+    }
+  ],
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
   "paths": {
     "/sessao/iniciar": {
       "post": {
+        "operationId": "iniciarSessao",
+        "summary": "Iniciar sessão do atleta",
+        "description": "Identifica o atleta por apelido e retorna plano ativo, contexto e instrução de continuação.",
         "tags": [
-          "sessao"
-        ],
-        "summary": "Iniciar sessao do atleta",
-        "description": "Identifica usuario por apelido e devolve plano atual, contexto e instrucao de continuacao para o GPT. Idempotente. Status 'novo' quando o apelido nao corresponde a nenhum atleta.",
-        "operationId": "post_iniciar_sessao_sessao_iniciar_post",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
-          }
+          "Sessão"
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SessaoIniciarRequest"
+                "type": "object",
+                "properties": {
+                  "apelido": {
+                    "type": "string",
+                    "description": "Apelido do atleta (ex: johnny)"
+                  }
+                },
+                "required": [
+                  "apelido"
+                ]
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Sessão iniciada",
             "content": {
               "application/json": {
                 "schema": {
@@ -47,79 +56,18 @@
             }
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "description": "Erro de validação"
           }
         }
       }
     },
     "/atletas": {
-      "get": {
-        "tags": [
-          "atletas"
-        ],
-        "summary": "List Atletas",
-        "operationId": "list_atletas_atletas_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AtletaRead"
-                  },
-                  "title": "Response List Atletas Atletas Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
       "post": {
+        "operationId": "criarAtleta",
+        "summary": "Criar novo atleta",
+        "description": "Cria um novo atleta com perfil básico. O apelido é único no sistema.",
         "tags": [
-          "atletas"
-        ],
-        "summary": "Create Atleta",
-        "operationId": "create_atleta_atletas_post",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
-          }
+          "Atletas"
         ],
         "requestBody": {
           "required": true,
@@ -133,7 +81,7 @@
         },
         "responses": {
           "201": {
-            "description": "Successful Response",
+            "description": "Atleta criado com sucesso",
             "content": {
               "application/json": {
                 "schema": {
@@ -142,49 +90,37 @@
               }
             }
           },
+          "409": {
+            "description": "Apelido já existe"
+          },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "description": "Erro de validação"
           }
         }
       }
     },
     "/atletas/{apelido}": {
       "get": {
+        "operationId": "buscarAtleta",
+        "summary": "Buscar atleta por apelido",
+        "description": "Retorna os dados completos de um atleta.",
         "tags": [
-          "atletas"
+          "Atletas"
         ],
-        "summary": "Get Atleta",
-        "operationId": "get_atleta_atletas__apelido__get",
         "parameters": [
           {
             "name": "apelido",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Apelido"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
+              "type": "string"
+            },
+            "description": "Apelido do atleta"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Dados do atleta",
             "content": {
               "application/json": {
                 "schema": {
@@ -193,42 +129,27 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+          "404": {
+            "description": "Atleta não encontrado"
           }
         }
       },
       "patch": {
+        "operationId": "atualizarAtleta",
+        "summary": "Atualizar dados do atleta",
+        "description": "Atualiza dados pessoais do atleta (nome, objetivo, nível, etc).",
         "tags": [
-          "atletas"
+          "Atletas"
         ],
-        "summary": "Update Atleta",
-        "operationId": "update_atleta_atletas__apelido__patch",
         "parameters": [
           {
             "name": "apelido",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Apelido"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
+              "type": "string"
+            },
+            "description": "Apelido do atleta"
           }
         ],
         "requestBody": {
@@ -243,7 +164,7 @@
         },
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Atleta atualizado",
             "content": {
               "application/json": {
                 "schema": {
@@ -252,44 +173,32 @@
               }
             }
           },
+          "404": {
+            "description": "Atleta não encontrado"
+          },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "description": "Erro de validação"
           }
         }
       }
     },
     "/atletas/{apelido}/flags": {
       "patch": {
+        "operationId": "atualizarFlags",
+        "summary": "Atualizar feature flags do atleta",
+        "description": "Ativa ou desativa funcionalidades: datas reais, contexto atleta, Google Calendar, Strava.",
         "tags": [
-          "atletas"
+          "Atletas"
         ],
-        "summary": "Update Atleta Flags",
-        "operationId": "update_atleta_flags_atletas__apelido__flags_patch",
         "parameters": [
           {
             "name": "apelido",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Apelido"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
+              "type": "string"
+            },
+            "description": "Apelido do atleta"
           }
         ],
         "requestBody": {
@@ -304,7 +213,7 @@
         },
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Flags atualizadas",
             "content": {
               "application/json": {
                 "schema": {
@@ -313,143 +222,19 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/checkins": {
-      "post": {
-        "tags": [
-          "checkins"
-        ],
-        "summary": "Create Checkin",
-        "operationId": "create_checkin_checkins_post",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CheckinCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CheckinRead"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/checkins/{apelido}": {
-      "get": {
-        "tags": [
-          "checkins"
-        ],
-        "summary": "List Checkins",
-        "operationId": "list_checkins_checkins__apelido__get",
-        "parameters": [
-          {
-            "name": "apelido",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Apelido"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CheckinRead"
-                  },
-                  "title": "Response List Checkins Checkins  Apelido  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+          "404": {
+            "description": "Atleta não encontrado"
           }
         }
       }
     },
     "/planos-semanais": {
       "post": {
+        "operationId": "criarPlano",
+        "summary": "Criar plano semanal",
+        "description": "Cria um novo plano de treino para um atleta. Se já existe plano ativo, use novo_ciclo=true para arquivar o anterior.",
         "tags": [
-          "planos_semanais"
-        ],
-        "summary": "Create Plano",
-        "operationId": "create_plano_planos_semanais_post",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
-          }
+          "Planos"
         ],
         "requestBody": {
           "required": true,
@@ -463,7 +248,7 @@
         },
         "responses": {
           "201": {
-            "description": "Successful Response",
+            "description": "Plano criado com sucesso",
             "content": {
               "application/json": {
                 "schema": {
@@ -472,49 +257,37 @@
               }
             }
           },
+          "409": {
+            "description": "Plano ativo já existe. Use novo_ciclo=true para criar novo."
+          },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "description": "Erro de validação"
           }
         }
       }
     },
     "/planos-semanais/{apelido}/atual": {
       "get": {
+        "operationId": "buscarPlanoAtual",
+        "summary": "Buscar plano ativo do atleta",
+        "description": "Retorna o plano semanal ativo (status=ativo) mais recente do atleta.",
         "tags": [
-          "planos_semanais"
+          "Planos"
         ],
-        "summary": "Get Plano Atual",
-        "operationId": "get_plano_atual_planos_semanais__apelido__atual_get",
         "parameters": [
           {
             "name": "apelido",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Apelido"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
+              "type": "string"
+            },
+            "description": "Apelido do atleta"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Plano ativo",
             "content": {
               "application/json": {
                 "schema": {
@@ -523,310 +296,147 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+          "404": {
+            "description": "Atleta não encontrado ou sem plano ativo"
           }
         }
       }
     },
     "/planos-semanais/{apelido}": {
       "get": {
+        "operationId": "listarPlanos",
+        "summary": "Listar planos do atleta",
+        "description": "Retorna todos os planos (ativos e arquivados) do atleta, ordenados por data decrescente.",
         "tags": [
-          "planos_semanais"
+          "Planos"
         ],
-        "summary": "List Planos",
-        "operationId": "list_planos_planos_semanais__apelido__get",
         "parameters": [
           {
             "name": "apelido",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Apelido"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
+              "type": "string"
+            },
+            "description": "Apelido do atleta"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Lista de planos",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/PlanoSemanalRead"
-                  },
-                  "title": "Response List Planos Planos Semanais  Apelido  Get"
+                  }
                 }
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+          "404": {
+            "description": "Atleta não encontrado"
           }
         }
       }
     },
-    "/contexto/{apelido}": {
-      "get": {
-        "tags": [
-          "contexto"
-        ],
-        "summary": "Get Contexto",
-        "description": "Lista contexto de um atleta, agrupado por tipo.\n\nFormato: {\"objetivo\": {\"dias_treino\": \"4\"}, \"historico\": {...}}\n\nSe não houver contexto salvo, retorna fallback inteligente extraído do\nperfil do atleta. Fallback não é persistido automaticamente.",
-        "operationId": "get_contexto_contexto__apelido__get",
-        "parameters": [
-          {
-            "name": "apelido",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Apelido"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
-                    }
-                  },
-                  "title": "Response Get Contexto Contexto  Apelido  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/contexto/{apelido}/{tipo}/{chave}": {
+    "/checkins": {
       "post": {
+        "operationId": "criarCheckin",
+        "summary": "Criar check-in de treino",
+        "description": "Registra o desempenho de uma semana: treinos realizados, volume, sensação, dores.",
         "tags": [
-          "contexto"
-        ],
-        "summary": "Set Contexto",
-        "description": "Cria ou atualiza uma chave de contexto (upsert).\n\nIdempotente: chamar múltiplas vezes com mesmos (tipo, chave)\natualiza o valor em vez de duplicar.",
-        "operationId": "set_contexto_contexto__apelido___tipo___chave__post",
-        "parameters": [
-          {
-            "name": "apelido",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Apelido"
-            }
-          },
-          {
-            "name": "tipo",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Tipo"
-            }
-          },
-          {
-            "name": "chave",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Chave"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
-          }
+          "Checkins"
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ContextoAtletaCreate"
+                "$ref": "#/components/schemas/CheckinCreate"
               }
             }
           }
         },
         "responses": {
-          "200": {
-            "description": "Successful Response",
+          "201": {
+            "description": "Check-in criado",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContextoAtletaRead"
+                  "$ref": "#/components/schemas/CheckinRead"
                 }
               }
             }
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "description": "Erro de validação"
           }
         }
-      },
-      "delete": {
+      }
+    },
+    "/checkins/{apelido}": {
+      "get": {
+        "operationId": "listarCheckins",
+        "summary": "Listar check-ins do atleta",
+        "description": "Retorna todos os check-ins registrados para um atleta.",
         "tags": [
-          "contexto"
+          "Checkins"
         ],
-        "summary": "Delete Contexto",
-        "description": "Deleta uma chave de contexto específica.",
-        "operationId": "delete_contexto_contexto__apelido___tipo___chave__delete",
         "parameters": [
           {
             "name": "apelido",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Apelido"
-            }
-          },
-          {
-            "name": "tipo",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Tipo"
-            }
-          },
-          {
-            "name": "chave",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Chave"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
+              "type": "string"
+            },
+            "description": "Apelido do atleta"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
+            "description": "Lista de check-ins",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CheckinRead"
+                  }
                 }
               }
             }
+          },
+          "404": {
+            "description": "Atleta não encontrado"
           }
         }
       }
     },
     "/calendario/{apelido}/preview": {
       "get": {
+        "operationId": "previewCalendario",
+        "summary": "Preview do calendário",
+        "description": "Retorna preview dos eventos de treino do plano ativo (sem publicar no Google Calendar).",
         "tags": [
-          "calendario"
+          "Calendário"
         ],
-        "summary": "Preview Calendario",
-        "description": "Preview do calendario de eventos para um atleta.",
-        "operationId": "preview_calendario_calendario__apelido__preview_get",
         "parameters": [
           {
             "name": "apelido",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Apelido"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
+              "type": "string"
+            },
+            "description": "Apelido do atleta"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Preview do calendário",
             "content": {
               "application/json": {
                 "schema": {
@@ -835,50 +445,34 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+          "404": {
+            "description": "Atleta não encontrado"
           }
         }
       }
     },
     "/calendario/{apelido}/publicar": {
       "post": {
+        "operationId": "publicarCalendario",
+        "summary": "Publicar eventos no Google Calendar",
+        "description": "Publica os eventos do plano ativo no Google Calendar do atleta. Requer integração prévia.",
         "tags": [
-          "calendario"
+          "Calendário"
         ],
-        "summary": "Publicar Calendario",
-        "description": "Publica eventos reais do plano ativo no Google Calendar.",
-        "operationId": "publicar_calendario_calendario__apelido__publicar_post",
         "parameters": [
           {
             "name": "apelido",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Apelido"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
+              "type": "string"
+            },
+            "description": "Apelido do atleta"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Eventos publicados",
             "content": {
               "application/json": {
                 "schema": {
@@ -887,41 +481,34 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+          "404": {
+            "description": "Atleta não encontrado ou sem integração com Google"
           }
         }
       }
     },
     "/oauth/google/login/{apelido}": {
       "get": {
+        "operationId": "loginGoogle",
+        "summary": "Iniciar login com Google",
+        "description": "Gera URL para o atleta autenticar com Google e permitir acesso ao Google Calendar.",
         "tags": [
-          "oauth"
+          "OAuth"
         ],
-        "summary": "Oauth Login",
-        "description": "Inicia fluxo de autenticação com Google.\n\nGera URL para redirecionar o usuário ao Google OAuth consent screen.\n\nArgs:\n    apelido: Apelido do atleta\n\nReturns:\n    {redirect_url: \"https://accounts.google.com/...\"}\n\nHTTP Status:\n    200: OK, retorna URL\n    404: Atleta não encontrado\n    500: Erro ao gerar URL (config Google não definida)",
-        "operationId": "oauth_login_oauth_google_login__apelido__get",
         "parameters": [
           {
             "name": "apelido",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Apelido"
-            }
+              "type": "string"
+            },
+            "description": "Apelido do atleta"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "URL de autenticação",
             "content": {
               "application/json": {
                 "schema": {
@@ -930,104 +517,34 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/oauth/google/callback": {
-      "get": {
-        "tags": [
-          "oauth"
-        ],
-        "summary": "Oauth Callback",
-        "description": "Callback do Google OAuth.\n\nGoogle redireciona aqui após o usuário autorizar.\nBackend troca o code por tokens JWT.\n\nArgs:\n    code: Authorization code\n    state: State parameter (encoda apelido do atleta)\n\nReturns:\n    Redireciona para página de sucesso ou erro\n\nProcesso:\n    1. Validar state (extrair apelido do atleta)\n    2. Chamar Google token endpoint com code\n    3. Salvar tokens no banco via google_integration_service\n    4. Redirecionar para página de sucesso",
-        "operationId": "oauth_callback_oauth_google_callback_get",
-        "parameters": [
-          {
-            "name": "code",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Authorization code do Google",
-              "title": "Code"
-            },
-            "description": "Authorization code do Google"
-          },
-          {
-            "name": "state",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "State parameter para CSRF protection",
-              "title": "State"
-            },
-            "description": "State parameter para CSRF protection"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+          "404": {
+            "description": "Atleta não encontrado"
           }
         }
       }
     },
     "/oauth/google/status/{apelido}": {
       "get": {
+        "operationId": "statusGoogle",
+        "summary": "Verificar status de conexão com Google",
+        "description": "Verifica se o atleta está conectado ao Google e se o token ainda é válido.",
         "tags": [
-          "oauth"
+          "OAuth"
         ],
-        "summary": "Oauth Status",
-        "description": "Verifica status de conexão com Google.\n\nArgs:\n    apelido: Apelido do atleta\n\nReturns:\n    {\n        \"conectado\": true,\n        \"email_google\": \"user@gmail.com\",\n        \"expirado\": false,\n        \"tempo_restante_segundos\": 3600\n    }\n\nHTTP Status:\n    200: OK\n    404: Atleta não encontrado",
-        "operationId": "oauth_status_oauth_google_status__apelido__get",
         "parameters": [
           {
             "name": "apelido",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Apelido"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
+              "type": "string"
+            },
+            "description": "Apelido do atleta"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Status da conexão",
             "content": {
               "application/json": {
                 "schema": {
@@ -1036,1862 +553,242 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+          "404": {
+            "description": "Atleta não encontrado"
           }
         }
       }
     },
-    "/oauth/google/disconnect/{apelido}": {
+    "/memorias/{apelido}": {
       "post": {
+        "operationId": "salvarMemoria",
+        "summary": "Salvar memória do atleta",
+        "description": "Salva memória útil evitando duplicatas",
         "tags": [
-          "oauth"
+          "Memórias"
         ],
-        "summary": "Oauth Disconnect",
-        "description": "Desconecta Google (remove tokens).\n\nArgs:\n    apelido: Apelido do atleta\n\nReturns:\n    {\n        \"desconectado\": true,\n        \"mensagem\": \"Google desconectado com sucesso\"\n    }\n\nHTTP Status:\n    200: OK (desconectado ou não estava conectado)\n    404: Atleta não encontrado",
-        "operationId": "oauth_disconnect_oauth_google_disconnect__apelido__post",
         "parameters": [
           {
             "name": "apelido",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Apelido"
+              "type": "string"
+            },
+            "description": "Apelido do atleta"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtletaMemoriaCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memória salva",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "memoria": {
+                      "$ref": "#/components/schemas/AtletaMemoriaRead"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Atleta não encontrado"
+          }
+        }
+      }
+    },
+    "/memorias/{apelido}/resumo": {
+      "get": {
+        "operationId": "buscarResumoMemorias",
+        "summary": "Buscar resumo de memórias",
+        "description": "Retorna memórias mais importantes e recentes",
+        "tags": [
+          "Memórias"
+        ],
+        "parameters": [
+          {
+            "name": "apelido",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
+            "name": "limite",
+            "in": "query",
+            "required": false,
             "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "tipo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Resumo",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OAuthDisconnectResponse"
+                  "$ref": "#/components/schemas/MemoriasResumoResponse"
                 }
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "404": {
+            "description": "Atleta não encontrado"
+          }
+        }
+      }
+    },
+    "/memorias/{apelido}/buscar": {
+      "get": {
+        "operationId": "buscarMemorias",
+        "summary": "Buscar memórias por texto",
+        "description": "Busca memórias relevantes por texto",
+        "tags": [
+          "Memórias"
+        ],
+        "parameters": [
+          {
+            "name": "apelido",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultados",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/BuscaMemorias"
                 }
               }
             }
+          },
+          "404": {
+            "description": "Atleta não encontrado"
           }
         }
       }
     },
-    "/": {
-      "get": {
-        "summary": "Root",
-        "operationId": "root__get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
+    "/memorias/{apelido}/resumo-semanal": {
+      "post": {
+        "operationId": "salvarResumoSemanal",
+        "summary": "Salvar resumo semanal",
+        "description": "Registra resumo fechado da semana",
+        "tags": [
+          "Memórias"
+        ],
+        "parameters": [
+          {
+            "name": "apelido",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumoSemanalCreate"
               }
             }
           }
-        }
-      }
-    },
-    "/health": {
-      "get": {
-        "summary": "Health",
-        "operationId": "health_health_get",
+        },
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Salvo",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "memoria": {
+                      "$ref": "#/components/schemas/AtletaMemoriaRead"
+                    }
+                  }
+                }
               }
             }
+          },
+          "404": {
+            "description": "Atleta não encontrado"
           }
         }
       }
     }
   },
   "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "API Key para autenticação (fornecida pelo GoJohnny)"
+      }
+    },
     "schemas": {
-      "AtletaCreate": {
-        "properties": {
-          "nome": {
-            "type": "string",
-            "title": "Nome"
-          },
-          "apelido": {
-            "type": "string",
-            "title": "Apelido"
-          },
-          "objetivo": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Objetivo"
-          },
-          "nivel": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nivel"
-          },
-          "dias_treino": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dias Treino"
-          },
-          "altura_cm": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Altura Cm"
-          },
-          "peso_kg": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Peso Kg"
-          },
-          "pace_confortavel": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pace Confortavel"
-          },
-          "maior_distancia_recente_km": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Maior Distancia Recente Km"
-          },
-          "historico_dores": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Historico Dores"
-          },
-          "tenis_disponiveis": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tenis Disponiveis"
-          },
-          "proxima_prova": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Proxima Prova"
-          },
-          "data_proxima_prova": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Data Proxima Prova"
-          },
-          "distancia_alvo_km": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Distancia Alvo Km"
-          },
-          "observacoes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Observacoes"
-          },
-          "usar_datas_reais": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Datas Reais",
-            "default": false
-          },
-          "usar_contexto_atleta": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Contexto Atleta",
-            "default": false
-          },
-          "usar_google_calendar": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Google Calendar",
-            "default": false
-          },
-          "usar_strava": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Strava",
-            "default": false
-          }
-        },
-        "type": "object",
-        "required": [
-          "nome",
-          "apelido"
-        ],
-        "title": "AtletaCreate"
-      },
-      "AtletaFlags": {
-        "properties": {
-          "usar_datas_reais": {
-            "type": "boolean",
-            "title": "Usar Datas Reais"
-          },
-          "usar_contexto_atleta": {
-            "type": "boolean",
-            "title": "Usar Contexto Atleta"
-          },
-          "usar_google_calendar": {
-            "type": "boolean",
-            "title": "Usar Google Calendar"
-          },
-          "usar_strava": {
-            "type": "boolean",
-            "title": "Usar Strava"
-          }
-        },
-        "type": "object",
-        "required": [
-          "usar_datas_reais",
-          "usar_contexto_atleta",
-          "usar_google_calendar",
-          "usar_strava"
-        ],
-        "title": "AtletaFlags",
-        "description": "Response schema para flags de atleta."
-      },
-      "AtletaFlagsUpdate": {
-        "properties": {
-          "usar_datas_reais": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Datas Reais"
-          },
-          "usar_contexto_atleta": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Contexto Atleta"
-          },
-          "usar_google_calendar": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Google Calendar"
-          },
-          "usar_strava": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Strava"
-          }
-        },
-        "type": "object",
-        "title": "AtletaFlagsUpdate",
-        "description": "Endpoint dedicado de feature flags - opt-in explicito."
-      },
-      "AtletaRead": {
-        "properties": {
-          "nome": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nome"
-          },
-          "apelido": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Apelido"
-          },
-          "objetivo": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Objetivo"
-          },
-          "nivel": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nivel"
-          },
-          "dias_treino": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dias Treino"
-          },
-          "altura_cm": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Altura Cm"
-          },
-          "peso_kg": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Peso Kg"
-          },
-          "pace_confortavel": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pace Confortavel"
-          },
-          "maior_distancia_recente_km": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Maior Distancia Recente Km"
-          },
-          "historico_dores": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Historico Dores"
-          },
-          "tenis_disponiveis": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tenis Disponiveis"
-          },
-          "proxima_prova": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Proxima Prova"
-          },
-          "data_proxima_prova": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Data Proxima Prova"
-          },
-          "distancia_alvo_km": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Distancia Alvo Km"
-          },
-          "observacoes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Observacoes"
-          },
-          "usar_datas_reais": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Datas Reais",
-            "default": false
-          },
-          "usar_contexto_atleta": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Contexto Atleta",
-            "default": false
-          },
-          "usar_google_calendar": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Google Calendar",
-            "default": false
-          },
-          "usar_strava": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Strava",
-            "default": false
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "criado_em": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Criado Em"
-          },
-          "atualizado_em": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Atualizado Em"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id"
-        ],
-        "title": "AtletaRead"
-      },
-      "AtletaUpdate": {
-        "properties": {
-          "nome": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nome"
-          },
-          "apelido": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Apelido"
-          },
-          "objetivo": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Objetivo"
-          },
-          "nivel": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nivel"
-          },
-          "dias_treino": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dias Treino"
-          },
-          "altura_cm": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Altura Cm"
-          },
-          "peso_kg": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Peso Kg"
-          },
-          "pace_confortavel": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pace Confortavel"
-          },
-          "maior_distancia_recente_km": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Maior Distancia Recente Km"
-          },
-          "historico_dores": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Historico Dores"
-          },
-          "tenis_disponiveis": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tenis Disponiveis"
-          },
-          "proxima_prova": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Proxima Prova"
-          },
-          "data_proxima_prova": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Data Proxima Prova"
-          },
-          "distancia_alvo_km": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Distancia Alvo Km"
-          },
-          "observacoes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Observacoes"
-          },
-          "usar_datas_reais": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Datas Reais"
-          },
-          "usar_contexto_atleta": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Contexto Atleta"
-          },
-          "usar_google_calendar": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Google Calendar"
-          },
-          "usar_strava": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usar Strava"
-          }
-        },
-        "type": "object",
-        "title": "AtletaUpdate"
-      },
-      "CalendarioPreview": {
-        "properties": {
-          "atleta_apelido": {
-            "type": "string",
-            "title": "Atleta Apelido"
-          },
-          "total_eventos": {
-            "type": "integer",
-            "title": "Total Eventos"
-          },
-          "eventos": {
-            "items": {
-              "$ref": "#/components/schemas/EventoTreinoRead"
-            },
-            "type": "array",
-            "title": "Eventos"
-          },
-          "periodo_inicio": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Periodo Inicio"
-          },
-          "periodo_fim": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Periodo Fim"
-          }
-        },
-        "type": "object",
-        "required": [
-          "atleta_apelido",
-          "total_eventos"
-        ],
-        "title": "CalendarioPreview",
-        "description": "Preview de calendário com lista de eventos."
-      },
-      "CalendarioPublicacaoResponse": {
-        "properties": {
-          "publicado": {
-            "type": "boolean",
-            "title": "Publicado"
-          },
-          "motivo": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Motivo"
-          },
-          "eventos_criados": {
-            "type": "integer",
-            "title": "Eventos Criados"
-          },
-          "eventos_ignorados": {
-            "type": "integer",
-            "title": "Eventos Ignorados"
-          },
-          "erros": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Erros"
-          }
-        },
-        "type": "object",
-        "required": [
-          "publicado",
-          "eventos_criados",
-          "eventos_ignorados"
-        ],
-        "title": "CalendarioPublicacaoResponse",
-        "description": "Resumo da publicacao real de eventos no Google Calendar."
-      },
-      "CheckinCreate": {
-        "properties": {
-          "apelido": {
-            "type": "string",
-            "title": "Apelido"
-          },
-          "semana_inicio": {
-            "type": "string",
-            "format": "date",
-            "title": "Semana Inicio"
-          },
-          "treinos_planejados": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Treinos Planejados"
-          },
-          "treinos_realizados": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Treinos Realizados"
-          },
-          "volume_planejado_km": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Volume Planejado Km"
-          },
-          "volume_realizado_km": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Volume Realizado Km"
-          },
-          "pace_medio": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pace Medio"
-          },
-          "cansaco_0_10": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cansaco 0 10"
-          },
-          "dores": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dores"
-          },
-          "sono": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sono"
-          },
-          "sensacao_geral": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sensacao Geral"
-          },
-          "observacoes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Observacoes"
-          }
-        },
-        "type": "object",
-        "required": [
-          "apelido",
-          "semana_inicio"
-        ],
-        "title": "CheckinCreate"
-      },
-      "CheckinRead": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "atleta_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Atleta Id"
-          },
-          "semana_inicio": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Semana Inicio"
-          },
-          "treinos_planejados": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Treinos Planejados"
-          },
-          "treinos_realizados": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Treinos Realizados"
-          },
-          "volume_planejado_km": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Volume Planejado Km"
-          },
-          "volume_realizado_km": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Volume Realizado Km"
-          },
-          "pace_medio": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pace Medio"
-          },
-          "cansaco_0_10": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cansaco 0 10"
-          },
-          "dores": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dores"
-          },
-          "sono": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sono"
-          },
-          "sensacao_geral": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sensacao Geral"
-          },
-          "observacoes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Observacoes"
-          },
-          "criado_em": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Criado Em"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "atleta_id"
-        ],
-        "title": "CheckinRead"
-      },
-      "ContextoAtletaCreate": {
-        "properties": {
-          "tipo": {
-            "type": "string",
-            "title": "Tipo",
-            "description": "Categoria do contexto. Ex: objetivo, historico, preferencia."
-          },
-          "chave": {
-            "type": "string",
-            "title": "Chave",
-            "description": "Identificador da informação dentro do tipo."
-          },
-          "valor": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Valor"
-          },
-          "confianca": {
-            "anyOf": [
-              {
-                "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.0
-              },
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              }
-            ],
-            "title": "Confianca",
-            "default": "1.0"
-          },
-          "origem": {
-            "type": "string",
-            "title": "Origem",
-            "description": "De onde veio o dado. Ex: onboarding, checkin, manual."
-          },
-          "apelido": {
-            "type": "string",
-            "title": "Apelido",
-            "description": "Apelido do atleta dono do contexto."
-          }
-        },
-        "type": "object",
-        "required": [
-          "tipo",
-          "chave",
-          "origem",
-          "apelido"
-        ],
-        "title": "ContextoAtletaCreate"
-      },
-      "ContextoAtletaRead": {
-        "properties": {
-          "tipo": {
-            "type": "string",
-            "title": "Tipo",
-            "description": "Categoria do contexto. Ex: objetivo, historico, preferencia."
-          },
-          "chave": {
-            "type": "string",
-            "title": "Chave",
-            "description": "Identificador da informação dentro do tipo."
-          },
-          "valor": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Valor"
-          },
-          "confianca": {
-            "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Confianca",
-            "default": "1.0"
-          },
-          "origem": {
-            "type": "string",
-            "title": "Origem",
-            "description": "De onde veio o dado. Ex: onboarding, checkin, manual."
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "atleta_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Atleta Id"
-          },
-          "criado_em": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Criado Em"
-          },
-          "atualizado_em": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Atualizado Em"
-          }
-        },
-        "type": "object",
-        "required": [
-          "tipo",
-          "chave",
-          "origem",
-          "id",
-          "atleta_id",
-          "criado_em",
-          "atualizado_em"
-        ],
-        "title": "ContextoAtletaRead"
-      },
-      "EventoTreinoRead": {
-        "properties": {
-          "titulo": {
-            "type": "string",
-            "title": "Titulo",
-            "description": "Título do evento (ex: Treino leve)"
-          },
-          "descricao": {
-            "type": "string",
-            "title": "Descricao",
-            "description": "Descrição detalhada (ex: 8km ritmo leve)"
-          },
-          "data": {
-            "type": "string",
-            "format": "date",
-            "title": "Data",
-            "description": "Data do evento em ISO 8601"
-          },
-          "hora": {
-            "type": "string",
-            "format": "time",
-            "title": "Hora",
-            "description": "Hora de início em HH:MM"
-          },
-          "duracao_min": {
-            "type": "integer",
-            "maximum": 480.0,
-            "minimum": 5.0,
-            "title": "Duracao Min",
-            "description": "Duração em minutos (5-480)"
-          },
-          "id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id"
-          },
-          "atleta_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Atleta Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "titulo",
-          "descricao",
-          "data",
-          "hora",
-          "duracao_min"
-        ],
-        "title": "EventoTreinoRead",
-        "description": "Evento para leitura (com ID)."
-      },
-      "FlagsResponse": {
-        "properties": {
-          "usar_datas_reais": {
-            "type": "boolean",
-            "title": "Usar Datas Reais",
-            "default": false
-          },
-          "usar_contexto_atleta": {
-            "type": "boolean",
-            "title": "Usar Contexto Atleta",
-            "default": false
-          },
-          "usar_google_calendar": {
-            "type": "boolean",
-            "title": "Usar Google Calendar",
-            "default": false
-          },
-          "usar_strava": {
-            "type": "boolean",
-            "title": "Usar Strava",
-            "default": false
-          }
-        },
-        "type": "object",
-        "title": "FlagsResponse",
-        "description": "Subconjunto de feature flags que importa para a sessao."
-      },
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
-      },
-      "OAuthDisconnectResponse": {
-        "properties": {
-          "desconectado": {
-            "type": "boolean",
-            "title": "Desconectado"
-          },
-          "mensagem": {
-            "type": "string",
-            "title": "Mensagem"
-          }
-        },
-        "type": "object",
-        "required": [
-          "desconectado",
-          "mensagem"
-        ],
-        "title": "OAuthDisconnectResponse",
-        "description": "Resposta do endpoint POST /oauth/google/disconnect/{apelido}."
-      },
-      "OAuthLoginResponse": {
-        "properties": {
-          "redirect_url": {
-            "type": "string",
-            "title": "Redirect Url"
-          }
-        },
-        "type": "object",
-        "required": [
-          "redirect_url"
-        ],
-        "title": "OAuthLoginResponse",
-        "description": "Resposta do endpoint GET /oauth/google/login."
-      },
-      "OAuthStatusResponse": {
-        "properties": {
-          "conectado": {
-            "type": "boolean",
-            "title": "Conectado"
-          },
-          "email_google": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email Google"
-          },
-          "expirado": {
-            "type": "boolean",
-            "title": "Expirado"
-          },
-          "tempo_restante_segundos": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tempo Restante Segundos"
-          }
-        },
-        "type": "object",
-        "required": [
-          "conectado",
-          "expirado"
-        ],
-        "title": "OAuthStatusResponse",
-        "description": "Resposta do endpoint GET /oauth/google/status/{apelido}."
-      },
-      "PlanoSemanalCreate": {
-        "properties": {
-          "apelido": {
-            "type": "string",
-            "title": "Apelido"
-          },
-          "semana_inicio": {
-            "type": "string",
-            "format": "date",
-            "title": "Semana Inicio"
-          },
-          "objetivo_semana": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Objetivo Semana"
-          },
-          "volume_planejado_km": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Volume Planejado Km"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status"
-          },
-          "plano": {
-            "title": "Plano"
-          },
-          "data_inicio": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Data Inicio"
-          },
-          "data_prova": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Data Prova"
-          },
-          "dias_treino_json": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dias Treino Json"
-          },
-          "versao_estrutura": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Versao Estrutura"
-          },
-          "novo_ciclo": {
-            "type": "boolean",
-            "title": "Novo Ciclo",
-            "description": "Se ja existe plano ativo para este atleta, exige true para criar um novo (que arquivara o anterior). Sem este flag, o backend retorna 409 Conflict.",
-            "default": false
-          }
-        },
-        "type": "object",
-        "required": [
-          "apelido",
-          "semana_inicio",
-          "plano"
-        ],
-        "title": "PlanoSemanalCreate"
-      },
-      "PlanoSemanalRead": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "atleta_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Atleta Id"
-          },
-          "semana_inicio": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Semana Inicio"
-          },
-          "objetivo_semana": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Objetivo Semana"
-          },
-          "volume_planejado_km": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Volume Planejado Km"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status"
-          },
-          "plano": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Plano"
-          },
-          "data_inicio": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Data Inicio"
-          },
-          "data_prova": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Data Prova"
-          },
-          "dias_treino_json": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dias Treino Json"
-          },
-          "versao_estrutura": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Versao Estrutura"
-          },
-          "criado_em": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Criado Em"
-          },
-          "atualizado_em": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Atualizado Em"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "atleta_id"
-        ],
-        "title": "PlanoSemanalRead"
-      },
-      "SessaoIniciarRequest": {
-        "properties": {
-          "apelido": {
-            "type": "string",
-            "maxLength": 80,
-            "minLength": 1,
-            "title": "Apelido",
-            "description": "Apelido do atleta. O GPT pergunta isso direto no inicio. Se nao houver match, status = 'novo' e o GPT segue para o onboarding sem chamar mais APIs."
-          }
-        },
-        "type": "object",
-        "required": [
-          "apelido"
-        ],
-        "title": "SessaoIniciarRequest"
-      },
       "SessaoIniciarResponse": {
+        "type": "object",
         "properties": {
           "status": {
             "type": "string",
@@ -2899,94 +796,740 @@
               "novo",
               "existente"
             ],
-            "title": "Status"
+            "description": "novo = atleta não encontrado, existente = atleta já registrado"
           },
           "atleta": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AtletaRead"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/AtletaRead"
           },
           "plano_atual": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PlanoSemanalRead"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/PlanoSemanalRead"
           },
           "contexto_resumo": {
-            "additionalProperties": {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
             "type": "object",
-            "title": "Contexto Resumo"
+            "description": "Contexto histórico do atleta (objetivo, treino, preferências)"
           },
           "flags": {
-            "$ref": "#/components/schemas/FlagsResponse"
+            "$ref": "#/components/schemas/AtletaFlags"
           },
           "instrucao_continuacao": {
             "type": "string",
-            "title": "Instrucao Continuacao",
-            "description": "Texto curto orientando o Custom GPT sobre como continuar a conversa. Inclui se o usuario e novo, tem plano ativo, ou esta elegivel para upgrade de funcionalidades novas."
+            "description": "Instrução para o GPT continuar a conversa"
           }
         },
-        "type": "object",
         "required": [
           "status",
           "flags",
           "instrucao_continuacao"
-        ],
-        "title": "SessaoIniciarResponse"
+        ]
       },
-      "ValidationError": {
+      "AtletaCreate": {
+        "type": "object",
         "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "type": "array",
-            "title": "Location"
-          },
-          "msg": {
+          "nome": {
             "type": "string",
-            "title": "Message"
+            "description": "Nome completo do atleta"
           },
-          "type": {
+          "apelido": {
             "type": "string",
-            "title": "Error Type"
+            "description": "Apelido único do atleta (ex: johnny, pedro, maria)"
           },
-          "input": {
-            "title": "Input"
+          "objetivo": {
+            "type": "string",
+            "description": "Objetivo principal de treino"
           },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
+          "nivel": {
+            "type": "string",
+            "enum": [
+              "iniciante",
+              "intermediario",
+              "avancado"
+            ],
+            "description": "Nível de experiência em corrida"
+          },
+          "dias_treino": {
+            "type": "integer",
+            "description": "Quantos dias por semana o atleta pode treinar"
+          },
+          "altura_cm": {
+            "type": "integer",
+            "description": "Altura em centímetros"
+          },
+          "peso_kg": {
+            "type": "number",
+            "description": "Peso em kilogramas"
+          },
+          "pace_confortavel": {
+            "type": "string",
+            "description": "Ritmo confortável (ex: 6:00/km)"
+          },
+          "maior_distancia_recente_km": {
+            "type": "number",
+            "description": "Maior distância já corrida"
+          },
+          "historico_dores": {
+            "type": "string",
+            "description": "Histórico de lesões ou dores"
           }
         },
-        "type": "object",
         "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
-        "title": "ValidationError"
+          "nome",
+          "apelido"
+        ]
+      },
+      "AtletaRead": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID único do atleta"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "apelido": {
+            "type": "string"
+          },
+          "objetivo": {
+            "type": "string"
+          },
+          "nivel": {
+            "type": "string"
+          },
+          "dias_treino": {
+            "type": "integer"
+          },
+          "altura_cm": {
+            "type": "integer"
+          },
+          "peso_kg": {
+            "type": "number"
+          },
+          "pace_confortavel": {
+            "type": "string"
+          },
+          "maior_distancia_recente_km": {
+            "type": "number"
+          },
+          "historico_dores": {
+            "type": "string"
+          },
+          "usar_datas_reais": {
+            "type": "boolean",
+            "description": "Se true, usa datas reais ao invés de simuladas"
+          },
+          "usar_contexto_atleta": {
+            "type": "boolean",
+            "description": "Se true, inclui contexto do atleta na geração de planos"
+          },
+          "usar_google_calendar": {
+            "type": "boolean",
+            "description": "Se true, integra com Google Calendar"
+          },
+          "usar_strava": {
+            "type": "boolean",
+            "description": "Se true, integra com Strava"
+          },
+          "criado_em": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "atualizado_em": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "AtletaUpdate": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "objetivo": {
+            "type": "string"
+          },
+          "nivel": {
+            "type": "string"
+          },
+          "dias_treino": {
+            "type": "integer"
+          },
+          "altura_cm": {
+            "type": "integer"
+          },
+          "peso_kg": {
+            "type": "number"
+          },
+          "pace_confortavel": {
+            "type": "string"
+          },
+          "maior_distancia_recente_km": {
+            "type": "number"
+          },
+          "historico_dores": {
+            "type": "string"
+          }
+        }
+      },
+      "AtletaFlags": {
+        "type": "object",
+        "properties": {
+          "usar_datas_reais": {
+            "type": "boolean"
+          },
+          "usar_contexto_atleta": {
+            "type": "boolean"
+          },
+          "usar_google_calendar": {
+            "type": "boolean"
+          },
+          "usar_strava": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "usar_datas_reais",
+          "usar_contexto_atleta",
+          "usar_google_calendar",
+          "usar_strava"
+        ]
+      },
+      "AtletaFlagsUpdate": {
+        "type": "object",
+        "properties": {
+          "usar_datas_reais": {
+            "type": "boolean"
+          },
+          "usar_contexto_atleta": {
+            "type": "boolean"
+          },
+          "usar_google_calendar": {
+            "type": "boolean"
+          },
+          "usar_strava": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PlanoSemanalCreate": {
+        "type": "object",
+        "properties": {
+          "apelido": {
+            "type": "string",
+            "description": "Apelido do atleta"
+          },
+          "semana_inicio": {
+            "type": "string",
+            "format": "date",
+            "description": "Data de início da semana (YYYY-MM-DD)"
+          },
+          "objetivo_semana": {
+            "type": "string",
+            "description": "Objetivo específico para essa semana"
+          },
+          "volume_planejado_km": {
+            "type": "number",
+            "description": "Volume total planejado em km para a semana"
+          },
+          "plano": {
+            "type": "object",
+            "description": "Objeto JSON com o plano detalhado da semana"
+          },
+          "data_inicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "data_prova": {
+            "type": "string",
+            "format": "date",
+            "description": "Data da prova alvo, se houver"
+          },
+          "novo_ciclo": {
+            "type": "boolean",
+            "description": "Se true, arquiva plano anterior e inicia novo ciclo",
+            "default": false
+          },
+          "status": {
+            "type": "string",
+            "description": "Status do plano, normalmente ativo"
+          },
+          "dias_treino_json": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Dias de treino normalizados"
+          },
+          "versao_estrutura": {
+            "type": "integer",
+            "description": "Versão da estrutura do plano"
+          }
+        },
+        "required": [
+          "apelido",
+          "semana_inicio",
+          "plano"
+        ]
+      },
+      "PlanoSemanalRead": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "atleta_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "semana_inicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "objetivo_semana": {
+            "type": "string"
+          },
+          "volume_planejado_km": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ativo",
+              "arquivado"
+            ],
+            "description": "ativo = plano atual, arquivado = plano anterior"
+          },
+          "plano": {
+            "type": "object",
+            "description": "Objeto JSON com detalhes do plano retornado pelo backend"
+          },
+          "data_inicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "data_prova": {
+            "type": "string",
+            "format": "date"
+          },
+          "criado_em": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "atualizado_em": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "atleta_id"
+        ]
+      },
+      "CheckinCreate": {
+        "type": "object",
+        "properties": {
+          "apelido": {
+            "type": "string",
+            "description": "Apelido do atleta"
+          },
+          "semana_inicio": {
+            "type": "string",
+            "format": "date",
+            "description": "Semana a qual este check-in se refere"
+          },
+          "treinos_planejados": {
+            "type": "integer",
+            "description": "Quantos treinos foram planejados"
+          },
+          "treinos_realizados": {
+            "type": "integer",
+            "description": "Quantos treinos foram realmente feitos"
+          },
+          "volume_planejado_km": {
+            "type": "number"
+          },
+          "volume_realizado_km": {
+            "type": "number"
+          },
+          "pace_medio": {
+            "type": "string",
+            "description": "Pace médio da semana (ex: 6:15/km)"
+          },
+          "cansaco_0_10": {
+            "type": "integer",
+            "description": "Nível de cansaço de 0 a 10"
+          },
+          "dores": {
+            "type": "string",
+            "description": "Relato de dores ou desconfortos"
+          },
+          "sono": {
+            "type": "string",
+            "description": "Qualidade do sono"
+          },
+          "sensacao_geral": {
+            "type": "string",
+            "description": "Como se sentiu na semana"
+          }
+        },
+        "required": [
+          "apelido",
+          "semana_inicio"
+        ]
+      },
+      "CheckinRead": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "atleta_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "semana_inicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "treinos_planejados": {
+            "type": "integer"
+          },
+          "treinos_realizados": {
+            "type": "integer"
+          },
+          "volume_planejado_km": {
+            "type": "number"
+          },
+          "volume_realizado_km": {
+            "type": "number"
+          },
+          "pace_medio": {
+            "type": "string"
+          },
+          "cansaco_0_10": {
+            "type": "integer"
+          },
+          "dores": {
+            "type": "string"
+          },
+          "sono": {
+            "type": "string"
+          },
+          "sensacao_geral": {
+            "type": "string"
+          },
+          "criado_em": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "atleta_id"
+        ]
+      },
+      "CalendarioPreview": {
+        "type": "object",
+        "properties": {
+          "atleta_apelido": {
+            "type": "string"
+          },
+          "total_eventos": {
+            "type": "integer",
+            "description": "Total de eventos no preview"
+          },
+          "eventos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventoTreino"
+            }
+          },
+          "periodo_inicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "periodo_fim": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "atleta_apelido",
+          "total_eventos",
+          "eventos"
+        ]
+      },
+      "EventoTreino": {
+        "type": "object",
+        "properties": {
+          "titulo": {
+            "type": "string",
+            "description": "Título do treino (ex: Leve, Média, Forte)"
+          },
+          "descricao": {
+            "type": "string",
+            "description": "Descrição detalhada (ex: 8km ritmo 6:15/km)"
+          },
+          "data": {
+            "type": "string",
+            "format": "date"
+          },
+          "hora": {
+            "type": "string",
+            "format": "time",
+            "description": "Hora de início (HH:MM)"
+          },
+          "duracao_min": {
+            "type": "integer",
+            "description": "Duração estimada em minutos"
+          }
+        },
+        "required": [
+          "titulo",
+          "descricao",
+          "data",
+          "hora",
+          "duracao_min"
+        ]
+      },
+      "CalendarioPublicacaoResponse": {
+        "type": "object",
+        "properties": {
+          "publicado": {
+            "type": "boolean",
+            "description": "Se eventos foram publicados com sucesso"
+          },
+          "motivo": {
+            "type": "string",
+            "description": "Motivo da falha, se houver"
+          },
+          "eventos_criados": {
+            "type": "integer",
+            "description": "Quantidade de eventos criados no Google Calendar"
+          },
+          "eventos_ignorados": {
+            "type": "integer",
+            "description": "Quantidade de eventos não criados"
+          },
+          "erros": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "publicado",
+          "eventos_criados",
+          "eventos_ignorados"
+        ]
+      },
+      "OAuthLoginResponse": {
+        "type": "object",
+        "properties": {
+          "redirect_url": {
+            "type": "string",
+            "description": "URL para redirecionar o usuário ao Google OAuth"
+          }
+        },
+        "required": [
+          "redirect_url"
+        ]
+      },
+      "OAuthStatusResponse": {
+        "type": "object",
+        "properties": {
+          "conectado": {
+            "type": "boolean",
+            "description": "Se o atleta está conectado ao Google"
+          },
+          "email_google": {
+            "type": "string",
+            "description": "Email da conta Google conectada"
+          },
+          "expirado": {
+            "type": "boolean",
+            "description": "Se o token expirou"
+          },
+          "tempo_restante_segundos": {
+            "type": "integer",
+            "description": "Segundos até expiração do token"
+          }
+        },
+        "required": [
+          "conectado",
+          "expirado"
+        ]
+      },
+      "AtletaMemoriaCreate": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string"
+          },
+          "chave": {
+            "type": "string"
+          },
+          "valor_texto": {
+            "type": "string"
+          },
+          "valor_json": {
+            "type": "object"
+          },
+          "origem": {
+            "type": "string"
+          },
+          "importancia": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "default": 3
+          },
+          "confianca": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 1.0
+          },
+          "semana_inicio": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "tipo",
+          "chave",
+          "origem"
+        ]
+      },
+      "AtletaMemoriaRead": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "atleta_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "chave": {
+            "type": "string"
+          },
+          "valor_texto": {
+            "type": "string"
+          },
+          "valor_json": {
+            "type": "object"
+          },
+          "origem": {
+            "type": "string"
+          },
+          "importancia": {
+            "type": "integer"
+          },
+          "confianca": {
+            "type": "number"
+          },
+          "semana_inicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "ativo": {
+            "type": "boolean"
+          },
+          "criado_em": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "atualizado_em": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ResumoSemanalCreate": {
+        "type": "object",
+        "properties": {
+          "semana_inicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "resumo": {
+            "type": "string"
+          },
+          "aderencia": {
+            "type": "string",
+            "enum": [
+              "parcial",
+              "normal",
+              "excelente"
+            ],
+            "default": "normal"
+          },
+          "pontos_positivos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pontos_atencao": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "decisoes_treinador": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "proximo_foco": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "semana_inicio",
+          "resumo"
+        ]
+      },
+      "MemoriasResumoResponse": {
+        "type": "object",
+        "properties": {
+          "apelido": {
+            "type": "string"
+          },
+          "memorias": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AtletaMemoriaRead"
+            }
+          }
+        }
+      },
+      "BuscaMemorias": {
+        "type": "object",
+        "properties": {
+          "resultados": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AtletaMemoriaRead"
+            }
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
       }
     }
   }

@@ -20,6 +20,7 @@ from app.models.atleta import Atleta
 from app.models.plano_semanal import PlanoSemanal
 from app.services.context_service import contexto_com_fallback
 from app.services.feature_flag_service import capabilities_para
+from app.services.memoria_service import buscar_memorias_para_contexto
 
 
 # ---------------------------------------------------------------------------
@@ -77,6 +78,16 @@ def iniciar_sessao(db: Session, *, apelido: str) -> dict:
 
     caps = capabilities_para(atleta)
     contexto = contexto_com_fallback(db, atleta)
+    memorias_contexto = buscar_memorias_para_contexto(db, str(atleta.id))
+
+    # Enriquecer contexto_resumo com memórias
+    contexto_enriched = {
+        **contexto,
+        "memorias_relevantes": memorias_contexto.get("alertas_treinador", []),
+        "ultima_semana": memorias_contexto.get("ultima_semana"),
+        "alertas_treinador": [m["valor_texto"] for m in memorias_contexto.get("alertas_treinador", []) if m.get("valor_texto")],
+        "preferencias": memorias_contexto.get("preferencias", []),
+    }
 
     instrucao = (
         INSTRUCAO_EXISTENTE_COM_PLANO if plano is not None
@@ -87,7 +98,7 @@ def iniciar_sessao(db: Session, *, apelido: str) -> dict:
         "status": "existente",
         "atleta": atleta,
         "plano_atual": plano,
-        "contexto_resumo": contexto,
+        "contexto_resumo": contexto_enriched,
         "flags": caps.to_dict(),
         "instrucao_continuacao": instrucao,
     }

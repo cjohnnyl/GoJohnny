@@ -51,7 +51,8 @@ gojohnny/
 │   └── 002_fase1_aditiva.sql         # NOVO Fase 1
 ├── scripts/
 │   ├── backup_pre_fase1.sh           # NOVO Fase 1
-│   └── backup_pre_fase1.sql          # NOVO Fase 1
+│   ├── backup_pre_fase1.sql          # NOVO Fase 1
+│   └── export_openapi_gpt_actions.py # export OpenAPI compativel com Custom GPT
 ├── docs/
 │   ├── HANDOFF_FASE1.md              # PASSO A PASSO PARA CONTINUAR
 │   ├── QA_RELATORIO_FASE1.md         # 102 testes documentados
