@@ -49,7 +49,7 @@ class StravaLoginResponse(BaseModel):
 # -----------------------------------------------------------------------------
 
 class StravaActivitySummary(BaseModel):
-    """Resumo de atividade Strava normalizado."""
+    """Resumo de atividade Strava normalizado com datas formatadas."""
 
     strava_activity_id: int
     name: Optional[str] = None
@@ -57,6 +57,10 @@ class StravaActivitySummary(BaseModel):
     type: Optional[str] = None
     start_date_local: Optional[datetime] = None
     timezone: Optional[str] = None
+    data_local: Optional[date] = None
+    dia_semana: Optional[str] = None
+    data_formatada: Optional[str] = None
+    hora_local: Optional[str] = None
     distance_km: Optional[float] = None
     moving_time_s: Optional[int] = None
     elapsed_time_s: Optional[int] = None
@@ -91,6 +95,8 @@ class StravaTodayResponse(BaseModel):
     apelido: str
     encontrou: bool
     multiplas: bool = False
+    data_local: Optional[date] = None
+    data_formatada: Optional[str] = None
     atividade: Optional[StravaActivitySummary] = None
     atividades: Optional[List[StravaActivitySummary]] = None
     mensagem_usuario: str
@@ -114,6 +120,10 @@ class StravaAnalyzeWeekRequest(BaseModel):
 
 class StravaAnalysisResult(BaseModel):
     periodo: str
+    semana_inicio: Optional[str] = None
+    semana_fim: Optional[str] = None
+    data_inicio_formatada: Optional[str] = None
+    data_fim_formatada: Optional[str] = None
     titulo: Optional[str] = None
     planejado: Optional[Dict[str, Any]] = None
     executado: Optional[Dict[str, Any]] = None

@@ -306,7 +306,38 @@ async def analisar_semana(
 
 
 # ---------------------------------------------------------------------------
-# 11) DESCONECTAR
+# 11) TREINOS ÚLTIMOS DIAS
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/treinos-ultimos-dias/{apelido}",
+    response_model=StravaActivitiesResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def treinos_ultimos_dias(
+    apelido: str,
+    dias: int = Query(10, ge=1, le=90),
+    db: Session = Depends(get_db),
+):
+    try:
+        result = await strava_service.get_runs_last_n_days(db, apelido, dias=dias)
+    except LookupError as exc:
+        _handle_lookup_error(exc)
+    except PermissionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    return {
+        "apelido": apelido,
+        "total": result["total"],
+        "atividades": result["atividades"],
+        "mensagem_usuario": result["mensagem_usuario"],
+    }
+
+
+# ---------------------------------------------------------------------------
+# 12) DESCONECTAR
 # ---------------------------------------------------------------------------
 
 @router.post(

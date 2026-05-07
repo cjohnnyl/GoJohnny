@@ -32,6 +32,18 @@ from app.core.config import (
     STRAVA_SCOPES,
     STRAVA_TOKEN_ENCRYPTION_KEY,
 )
+from app.core.datetime_utils import (
+    today_sp,
+    now_sp,
+    local_day_range_sp,
+    week_range_sp,
+    normalize_date_to_sp,
+    to_utc_epoch,
+    format_date_pt,
+    get_weekday_name_pt,
+    format_date_with_weekday_pt,
+    format_time_pt,
+)
 from app.models.atleta import Atleta
 from app.models.plano_semanal import PlanoSemanal
 from app.models.strava import (
@@ -797,6 +809,31 @@ def _upsert_activity_cache(
 
 
 def _activity_cache_to_summary(cache: StravaActivityCache) -> Dict[str, Any]:
+    """
+    Converte cache de atividade para resumo com campos de data formatada.
+    Adiciona data_local, dia_semana, data_formatada, hora_local.
+    """
+    start_dt = cache.start_date_local
+    data_local = None
+    dia_semana = None
+    data_formatada = None
+    hora_local = None
+
+    if start_dt:
+        if isinstance(start_dt, datetime):
+            # Normaliza para São Paulo se necessário
+            if start_dt.tzinfo is None:
+                start_dt = start_dt.replace(tzinfo=timezone.utc)
+            start_sp = normalize_date_to_sp(start_dt)
+            data_local = start_sp.date()
+            dia_semana = get_weekday_name_pt(data_local)
+            data_formatada = format_date_with_weekday_pt(data_local)
+            hora_local = format_time_pt(start_sp)
+        elif isinstance(start_dt, date):
+            data_local = start_dt
+            dia_semana = get_weekday_name_pt(data_local)
+            data_formatada = format_date_with_weekday_pt(data_local)
+
     return {
         "strava_activity_id": cache.strava_activity_id,
         "name": cache.name,
@@ -804,6 +841,10 @@ def _activity_cache_to_summary(cache: StravaActivityCache) -> Dict[str, Any]:
         "type": cache.type,
         "start_date_local": cache.start_date_local,
         "timezone": cache.timezone,
+        "data_local": data_local,
+        "dia_semana": dia_semana,
+        "data_formatada": data_formatada,
+        "hora_local": hora_local,
         "distance_km": float(cache.distance_m) / 1000.0 if cache.distance_m is not None else None,
         "moving_time_s": cache.moving_time_s,
         "elapsed_time_s": cache.elapsed_time_s,
@@ -932,31 +973,50 @@ async def fetch_activity_streams(
 # ============================================================================
 
 def _epoch_for_date(d: date, *, end: bool = False) -> int:
+    """
+    Converte data para epoch usando America/Sao_Paulo.
+    Se end=False, usa 00:00:00. Se end=True, usa 23:59:59.
+    """
+    from app.core.datetime_utils import TZ_SP
     t = dtime(23, 59, 59) if end else dtime(0, 0, 0)
-    dt = datetime.combine(d, t, tzinfo=timezone.utc)
+    dt = datetime.combine(d, t, tzinfo=TZ_SP)
     return int(dt.timestamp())
 
 
 async def get_today_run(db: Session, apelido: str) -> Dict[str, Any]:
-    today = _agora_utc().date()
-    after = _epoch_for_date(today - timedelta(days=1), end=False)
-    before = _epoch_for_date(today, end=True)
+    """
+    Busca corrida de hoje usando America/Sao_Paulo como referência.
+    """
+    hoje = today_sp()
+    day_range = local_day_range_sp(hoje)
+    after = day_range["after_epoch"]
+    before = day_range["before_epoch"]
 
     atividades = await fetch_athlete_activities(
         db, apelido, after=after, before=before, per_page=30, page=1, only_runs=True
     )
 
-    # filtra somente as do dia local de hoje (UTC) - Strava ja retorna da janela
+    # Filtra somente as de hoje local (America/Sao_Paulo)
     atividades_hoje = []
     for a in atividades:
         sd = a.get("start_date_local")
-        if sd and sd.date() == today:
-            atividades_hoje.append(a)
+        if sd:
+            if isinstance(sd, datetime):
+                if sd.tzinfo is None:
+                    sd = sd.replace(tzinfo=timezone.utc)
+                sd_sp = normalize_date_to_sp(sd)
+                if sd_sp.date() == hoje:
+                    atividades_hoje.append(a)
+            elif isinstance(sd, date):
+                if sd == hoje:
+                    atividades_hoje.append(a)
 
     if not atividades_hoje:
         return {
             "apelido": apelido,
             "encontrou": False,
+            "data_local": hoje,
+            "data_formatada": format_date_with_weekday_pt(hoje),
             "mensagem_usuario": "Nao encontrei corrida no Strava para hoje.",
         }
 
@@ -965,6 +1025,8 @@ async def get_today_run(db: Session, apelido: str) -> Dict[str, Any]:
             "apelido": apelido,
             "encontrou": True,
             "multiplas": True,
+            "data_local": hoje,
+            "data_formatada": format_date_with_weekday_pt(hoje),
             "atividades": atividades_hoje,
             "mensagem_usuario": f"Encontrei {len(atividades_hoje)} corridas hoje. Qual quer analisar?",
         }
@@ -973,6 +1035,8 @@ async def get_today_run(db: Session, apelido: str) -> Dict[str, Any]:
         "apelido": apelido,
         "encontrou": True,
         "multiplas": False,
+        "data_local": hoje,
+        "data_formatada": format_date_with_weekday_pt(hoje),
         "atividade": atividades_hoje[0],
         "mensagem_usuario": "Encontrei tua corrida de hoje no Strava.",
     }
@@ -1006,6 +1070,7 @@ async def get_recent_runs(
     apelido: str,
     limit: int = 10,
 ) -> List[Dict[str, Any]]:
+    """Busca últimos N treinos."""
     coletadas: List[Dict[str, Any]] = []
     page = 1
     per_page = 30
@@ -1022,6 +1087,52 @@ async def get_recent_runs(
 
     coletadas.sort(key=lambda a: a.get("start_date_local") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
     return coletadas[:limit]
+
+
+# ============================================================================
+# 11b) get_runs_last_n_days
+# ============================================================================
+
+async def get_runs_last_n_days(
+    db: Session,
+    apelido: str,
+    dias: int = 10,
+) -> Dict[str, Any]:
+    """
+    Busca corridas dos últimos N dias locais de America/Sao_Paulo.
+    Útil quando usuário pede "pega meus últimos 10 dias no Strava".
+    """
+    if dias < 1 or dias > 90:
+        dias = 10
+
+    hoje = today_sp()
+    data_inicio = hoje - timedelta(days=dias)
+
+    day_range = local_day_range_sp(data_inicio)
+    after = day_range["after_epoch"]
+
+    day_range_fim = local_day_range_sp(hoje)
+    before = day_range_fim["before_epoch"]
+
+    atividades = await fetch_athlete_activities(
+        db, apelido, after=after, before=before, per_page=50, page=1, only_runs=True
+    )
+
+    # Ordena por data decrescente
+    atividades.sort(
+        key=lambda a: a.get("start_date_local") or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True
+    )
+
+    return {
+        "apelido": apelido,
+        "dias": dias,
+        "data_inicio": data_inicio,
+        "data_fim": hoje,
+        "total": len(atividades),
+        "atividades": atividades,
+        "mensagem_usuario": f"{len(atividades)} corridas nos últimos {dias} dias.",
+    }
 
 
 # ============================================================================
@@ -1323,9 +1434,15 @@ async def analyze_strava_activity_against_plan(
     db.commit()
     db.refresh(analysis)
 
+    # Formata data local do treino executado
+    data_treino = ref_dt.date() if isinstance(ref_dt, datetime) else ref_dt
+    data_formatada = format_date_with_weekday_pt(data_treino)
+
     return {
         "periodo": "treino",
         "titulo": executado.get("name"),
+        "data_local": data_treino.isoformat(),
+        "data_formatada": data_formatada,
         "planejado": planejado,
         "executado": _executado_to_jsonable(executado),
         "comparativo": analise["comparativo"],
@@ -1368,6 +1485,7 @@ async def analyze_strava_week_against_plan(
 ) -> Dict[str, Any]:
     atleta = _obter_atleta(db, apelido)
 
+    # Tenta buscar plano para a semana_inicio do request
     plano = (
         db.query(PlanoSemanal)
         .filter(
@@ -1378,14 +1496,42 @@ async def analyze_strava_week_against_plan(
         )
         .first()
     )
+
+    # Se não encontrar, tenta plano ativo
     if not plano:
         plano = _plano_ativo(db, atleta.id)
 
+    # Busca atividades Strava da semana (sempre usando America/Sao_Paulo)
     atividades = await get_week_runs(db, apelido, semana_inicio, semana_fim)
 
     treinos_plan = []
-    if plano and plano.plano and isinstance(plano.plano, dict):
-        treinos_plan = plano.plano.get("treinos") or []
+    volume_planejado_km = None
+
+    if plano and plano.plano:
+        if isinstance(plano.plano, dict):
+            treinos_plan = plano.plano.get("treinos") or []
+        elif isinstance(plano.plano, str):
+            try:
+                plano_dict = json.loads(plano.plano)
+                treinos_plan = plano_dict.get("treinos") or []
+            except Exception:
+                treinos_plan = []
+
+        # Enriquece treinos_plan com datas se não tiverem
+        treinos_plan_enriquecidos = []
+        for treino in treinos_plan:
+            treino_copy = dict(treino)
+            if "data" not in treino_copy and "dia" in treino_copy:
+                # Calcula a data baseada no dia da semana e semana_inicio
+                from app.core.datetime_utils import weekday_date_for_week
+                dia_nome = treino_copy.get("dia", "").lower()
+                data_calculada = weekday_date_for_week(dia_nome, semana_inicio)
+                if data_calculada:
+                    treino_copy["data"] = data_calculada.isoformat()
+            treinos_plan_enriquecidos.append(treino_copy)
+
+        treinos_plan = treinos_plan_enriquecidos
+        volume_planejado_km = float(plano.volume_planejado_km) if plano.volume_planejado_km else None
 
     n_planejados = len(treinos_plan)
     n_executados = len(atividades)
@@ -1404,7 +1550,10 @@ async def analyze_strava_week_against_plan(
         pontos_positivos.append(f"{n_executados} corridas no Strava nessa janela.")
 
     volume_total_km = sum((a.get("distance_km") or 0) for a in atividades)
-    volume_planejado_km = float(plano.volume_planejado_km) if plano and plano.volume_planejado_km else None
+
+    # volume_planejado_km já foi calculado acima
+    if not volume_planejado_km and plano and plano.volume_planejado_km:
+        volume_planejado_km = float(plano.volume_planejado_km)
 
     if volume_planejado_km:
         if volume_total_km >= volume_planejado_km * 0.9:
@@ -1484,9 +1633,21 @@ async def analyze_strava_week_against_plan(
 
     return {
         "periodo": "semana",
+        "semana_inicio": semana_inicio.isoformat(),
+        "semana_fim": semana_fim.isoformat(),
+        "data_inicio_formatada": format_date_with_weekday_pt(semana_inicio),
+        "data_fim_formatada": format_date_with_weekday_pt(semana_fim),
         "titulo": f"Semana {semana_inicio.isoformat()}",
-        "planejado": {"treinos": treinos_plan, "volume_planejado_km": volume_planejado_km},
-        "executado": {"atividades": [_executado_to_jsonable(a) for a in atividades]},
+        "planejado": {
+            "treinos": treinos_plan,
+            "volume_planejado_km": volume_planejado_km,
+            "treinos_planejados": n_planejados,
+        },
+        "executado": {
+            "atividades": [_executado_to_jsonable(a) for a in atividades],
+            "treinos_executados": n_executados,
+            "volume_total_km": round(volume_total_km, 2),
+        },
         "comparativo": comparativo,
         "aderencia": aderencia,
         "pontos_positivos": pontos_positivos,
