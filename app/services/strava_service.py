@@ -1164,13 +1164,19 @@ def _plano_ativo(db: Session, atleta_id: uuid.UUID) -> Optional[PlanoSemanal]:
     )
 
 
-def _treino_planejado_para_dia(plano: Optional[PlanoSemanal], dt: datetime) -> Optional[Dict[str, Any]]:
+def _treino_planejado_para_dia(plano: Optional[PlanoSemanal], dt: Any) -> Optional[Dict[str, Any]]:
     if not plano or not plano.plano:
         return None
-    plan_data = plano.plano if isinstance(plano.plano, dict) else {}
+    plan_data = _parse_plano_payload(plano.plano)
     treinos = plan_data.get("treinos") or []
-    dia_pt = DIA_SEMANA_PT.get(dt.weekday())
+    ref_date = _safe_date(dt)
+    dia_pt = DIA_SEMANA_PT.get(ref_date.weekday())
     for t in treinos:
+        # Match por data exata primeiro
+        treino_data = t.get("data")
+        if treino_data and str(treino_data) == ref_date.isoformat():
+            return t
+        # Fallback: match por dia da semana
         if (t.get("dia") or "").strip().lower() == dia_pt:
             return t
     return None
@@ -1287,7 +1293,11 @@ def _gerar_analise_treino(
             pontos_atencao.append(f"Distancia acima do planejado ({exec_km:.2f} km vs {planejado.get('estimativa_km')} km).")
 
     # Duracao
-    plan_dur = planejado.get("duracao_min")
+    plan_dur_raw = planejado.get("duracao_min")
+    try:
+        plan_dur = float(plan_dur_raw) if plan_dur_raw is not None else None
+    except (TypeError, ValueError):
+        plan_dur = None
     if plan_dur and exec_duracao:
         delta_pct = abs(exec_duracao - plan_dur) / plan_dur
         if delta_pct <= 0.20:
@@ -1341,35 +1351,71 @@ async def analyze_strava_activity_against_plan(
     salvar_checkin: bool = False,
     salvar_memoria_flag: bool = False,
 ) -> Dict[str, Any]:
+    import logging
+    import traceback
+    logger = logging.getLogger(__name__)
+
     atleta = _obter_atleta(db, apelido)
 
-    detalhe = await fetch_activity_detail(db, apelido, activity_id)
+    try:
+        detalhe = await fetch_activity_detail(db, apelido, activity_id)
+    except Exception as exc:
+        _log_sync(
+            db,
+            atleta_id=atleta.id,
+            endpoint=f"analisar-treino/{apelido}",
+            metodo="POST",
+            sucesso=False,
+            erro_texto=f"fetch_activity_detail falhou: {type(exc).__name__}: {exc}",
+        )
+        raise
+
     executado = detalhe["atividade"]
 
     plano = _plano_ativo(db, atleta.id)
 
+    # Determina data de referencia a partir da atividade
     sd_local = executado.get("start_date_local")
     if isinstance(sd_local, datetime):
         ref_dt = sd_local
+    elif isinstance(sd_local, date):
+        ref_dt = sd_local
     else:
-        ref_dt = _agora_utc()
+        ref_dt = now_sp()
 
-    planejado = _treino_planejado_para_dia(plano, ref_dt)
+    data_treino = _safe_date(ref_dt)
 
-    analise = _gerar_analise_treino(planejado, executado)
+    try:
+        planejado = _treino_planejado_para_dia(plano, ref_dt)
+    except Exception:
+        logger.warning("Erro ao buscar treino planejado para dia %s", data_treino, exc_info=True)
+        planejado = None
+
+    try:
+        analise = _gerar_analise_treino(planejado, executado)
+    except Exception:
+        logger.warning("Erro ao gerar analise de treino %s", activity_id, exc_info=True)
+        analise = {
+            "comparativo": {},
+            "aderencia": "parcial",
+            "pontos_positivos": [],
+            "pontos_atencao": ["Erro interno ao gerar analise comparativa."],
+            "decisao_treinador": "Analise incompleta. Registrei o treino executado.",
+            "plano_deve_mudar": False,
+            "tipo_acao_recomendada": "manter",
+        }
 
     memoria_sugerida: Optional[Dict[str, Any]] = None
     checkin_sugerido: Optional[Dict[str, Any]] = None
 
-    # Sugestao de memoria
     if analise["aderencia"] == "boa":
         memoria_sugerida = {
             "tipo": "treino_realizado",
             "chave": f"strava_{activity_id}",
-            "valor_texto": f"Treino {executado.get('name')} executado dentro do plano em {ref_dt.date().isoformat()}.",
+            "valor_texto": f"Treino {executado.get('name')} executado dentro do plano em {data_treino.isoformat()}.",
             "importancia": 3,
         }
-    elif analise["pontos_atencao"]:
+    elif analise.get("pontos_atencao"):
         memoria_sugerida = {
             "tipo": "feedback_treino",
             "chave": f"strava_{activity_id}",
@@ -1377,9 +1423,8 @@ async def analyze_strava_activity_against_plan(
             "importancia": 4,
         }
 
-    # Sugestao de check-in
     checkin_sugerido = {
-        "data": ref_dt.date().isoformat(),
+        "data": data_treino.isoformat(),
         "tipo": (planejado or {}).get("tipo") if planejado else executado.get("sport_type"),
         "distancia_km": executado.get("distance_km"),
         "duracao_min": executado.get("duracao_min"),
@@ -1407,35 +1452,41 @@ async def analyze_strava_activity_against_plan(
             )
             salvo["memoria"] = True
         except Exception:
+            logger.warning("Falha ao salvar memoria para treino %s", activity_id, exc_info=True)
             db.rollback()
 
-    # Persistir analise
-    analysis = StravaTrainingAnalysis(
-        atleta_id=atleta.id,
-        plano_id=plano.id if plano else None,
-        strava_activity_id=activity_id,
-        periodo="treino",
-        data_inicio=ref_dt.date(),
-        data_fim=ref_dt.date(),
-        titulo=executado.get("name"),
-        treino_planejado_json=planejado,
-        treino_executado_json=_executado_to_jsonable(executado),
-        comparativo_json=analise["comparativo"],
-        aderencia=analise["aderencia"],
-        pontos_positivos=analise["pontos_positivos"],
-        pontos_atencao=analise["pontos_atencao"],
-        decisao_treinador=analise["decisao_treinador"],
-        plano_deve_mudar=analise["plano_deve_mudar"],
-        tipo_acao_recomendada=analise["tipo_acao_recomendada"],
-        memoria_criada=salvo["memoria"],
-        checkin_criado=salvo["checkin"],
-    )
-    db.add(analysis)
-    db.commit()
-    db.refresh(analysis)
+    # Persistir analise (best-effort)
+    analise_id: Optional[str] = None
+    try:
+        executado_json = _executado_to_jsonable(executado)
+        analysis = StravaTrainingAnalysis(
+            atleta_id=atleta.id,
+            plano_id=plano.id if plano else None,
+            strava_activity_id=activity_id,
+            periodo="treino",
+            data_inicio=data_treino,
+            data_fim=data_treino,
+            titulo=executado.get("name"),
+            treino_planejado_json=planejado,
+            treino_executado_json=executado_json,
+            comparativo_json=analise.get("comparativo"),
+            aderencia=analise.get("aderencia"),
+            pontos_positivos=analise.get("pontos_positivos"),
+            pontos_atencao=analise.get("pontos_atencao"),
+            decisao_treinador=analise.get("decisao_treinador"),
+            plano_deve_mudar=analise.get("plano_deve_mudar", False),
+            tipo_acao_recomendada=analise.get("tipo_acao_recomendada"),
+            memoria_criada=salvo["memoria"],
+            checkin_criado=salvo["checkin"],
+        )
+        db.add(analysis)
+        db.commit()
+        db.refresh(analysis)
+        analise_id = str(analysis.id)
+    except Exception:
+        logger.warning("Falha ao persistir analise para treino %s", activity_id, exc_info=True)
+        db.rollback()
 
-    # Formata data local do treino executado
-    data_treino = ref_dt.date() if isinstance(ref_dt, datetime) else ref_dt
     data_formatada = format_date_with_weekday_pt(data_treino)
 
     return {
@@ -1445,30 +1496,76 @@ async def analyze_strava_activity_against_plan(
         "data_formatada": data_formatada,
         "planejado": planejado,
         "executado": _executado_to_jsonable(executado),
-        "comparativo": analise["comparativo"],
-        "aderencia": analise["aderencia"],
-        "pontos_positivos": analise["pontos_positivos"],
-        "pontos_atencao": analise["pontos_atencao"],
-        "decisao_treinador": analise["decisao_treinador"],
-        "plano_deve_mudar": analise["plano_deve_mudar"],
-        "tipo_acao_recomendada": analise["tipo_acao_recomendada"],
+        "comparativo": analise.get("comparativo"),
+        "aderencia": analise.get("aderencia"),
+        "pontos_positivos": analise.get("pontos_positivos", []),
+        "pontos_atencao": analise.get("pontos_atencao", []),
+        "decisao_treinador": analise.get("decisao_treinador"),
+        "plano_deve_mudar": analise.get("plano_deve_mudar", False),
+        "tipo_acao_recomendada": analise.get("tipo_acao_recomendada"),
         "memoria_sugerida": memoria_sugerida,
         "checkin_sugerido": checkin_sugerido,
         "resumo_semanal_sugerido": None,
         "salvo": salvo,
-        "analise_id": str(analysis.id),
+        "analise_id": analise_id,
     }
 
 
 def _executado_to_jsonable(executado: Dict[str, Any]) -> Dict[str, Any]:
-    """Converte datetime/numerics para tipos JSON-friendly."""
+    """Converte datetime/date/Decimal para tipos JSON-friendly."""
+    from decimal import Decimal
     out: Dict[str, Any] = {}
     for k, v in executado.items():
         if isinstance(v, datetime):
             out[k] = v.isoformat()
+        elif isinstance(v, date) and not isinstance(v, datetime):
+            out[k] = v.isoformat()
+        elif isinstance(v, Decimal):
+            out[k] = float(v)
         else:
             out[k] = v
     return out
+
+
+def _parse_plano_payload(plano_raw: Any) -> Dict[str, Any]:
+    """
+    Parse robusto do campo plano.plano que pode ser:
+    - None -> {}
+    - dict -> dict
+    - list -> {"treinos": list}
+    - string JSON válida -> dict/list (recursivo)
+    - string inválida -> {}
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    if plano_raw is None:
+        return {}
+    if isinstance(plano_raw, dict):
+        return plano_raw
+    if isinstance(plano_raw, list):
+        return {"treinos": plano_raw}
+    if isinstance(plano_raw, str):
+        try:
+            parsed = json.loads(plano_raw)
+            if isinstance(parsed, dict):
+                return parsed
+            if isinstance(parsed, list):
+                return {"treinos": parsed}
+            return {}
+        except Exception:
+            logger.warning("plano.plano nao e JSON valido: %s", plano_raw[:200] if len(plano_raw) > 200 else plano_raw)
+            return {}
+    return {}
+
+
+def _safe_date(ref_dt: Any) -> date:
+    """Extrai date de qualquer input sem explodir."""
+    if isinstance(ref_dt, datetime):
+        return ref_dt.date()
+    if isinstance(ref_dt, date):
+        return ref_dt
+    return today_sp()
 
 
 # ============================================================================
@@ -1483,9 +1580,12 @@ async def analyze_strava_week_against_plan(
     *,
     salvar_resumo: bool = False,
 ) -> Dict[str, Any]:
+    import logging
+    logger = logging.getLogger(__name__)
+
     atleta = _obter_atleta(db, apelido)
 
-    # Tenta buscar plano para a semana_inicio do request
+    # --- Busca plano ---
     plano = (
         db.query(PlanoSemanal)
         .filter(
@@ -1496,43 +1596,55 @@ async def analyze_strava_week_against_plan(
         )
         .first()
     )
-
-    # Se não encontrar, tenta plano ativo
     if not plano:
         plano = _plano_ativo(db, atleta.id)
 
-    # Busca atividades Strava da semana (sempre usando America/Sao_Paulo)
-    atividades = await get_week_runs(db, apelido, semana_inicio, semana_fim)
+    # --- Busca atividades Strava ---
+    try:
+        atividades = await get_week_runs(db, apelido, semana_inicio, semana_fim)
+    except Exception as exc:
+        _log_sync(
+            db,
+            atleta_id=atleta.id,
+            endpoint=f"analisar-semana/{apelido}",
+            metodo="POST",
+            sucesso=False,
+            erro_texto=f"get_week_runs falhou: {type(exc).__name__}: {exc}",
+        )
+        raise
 
-    treinos_plan = []
-    volume_planejado_km = None
+    # --- Parse robusto do planejado ---
+    treinos_plan: List[Dict[str, Any]] = []
+    volume_planejado_km: Optional[float] = None
+    objetivo_semana: Optional[str] = None
 
-    if plano and plano.plano:
-        if isinstance(plano.plano, dict):
-            treinos_plan = plano.plano.get("treinos") or []
-        elif isinstance(plano.plano, str):
-            try:
-                plano_dict = json.loads(plano.plano)
-                treinos_plan = plano_dict.get("treinos") or []
-            except Exception:
-                treinos_plan = []
+    if plano:
+        plan_data = _parse_plano_payload(plano.plano)
+        treinos_plan = plan_data.get("treinos") or []
 
-        # Enriquece treinos_plan com datas se não tiverem
+        # Enriquece treinos com datas reais
         treinos_plan_enriquecidos = []
         for treino in treinos_plan:
             treino_copy = dict(treino)
             if "data" not in treino_copy and "dia" in treino_copy:
-                # Calcula a data baseada no dia da semana e semana_inicio
                 from app.core.datetime_utils import weekday_date_for_week
                 dia_nome = treino_copy.get("dia", "").lower()
                 data_calculada = weekday_date_for_week(dia_nome, semana_inicio)
                 if data_calculada:
                     treino_copy["data"] = data_calculada.isoformat()
+                    treino_copy["dia_semana"] = get_weekday_name_pt(data_calculada)
+                    treino_copy["data_formatada"] = format_date_with_weekday_pt(data_calculada)
             treinos_plan_enriquecidos.append(treino_copy)
-
         treinos_plan = treinos_plan_enriquecidos
-        volume_planejado_km = float(plano.volume_planejado_km) if plano.volume_planejado_km else None
 
+        try:
+            volume_planejado_km = float(plano.volume_planejado_km) if plano.volume_planejado_km else None
+        except (TypeError, ValueError):
+            volume_planejado_km = None
+
+        objetivo_semana = plano.objetivo_semana
+
+    # --- Analise ---
     n_planejados = len(treinos_plan)
     n_executados = len(atividades)
 
@@ -1547,13 +1659,12 @@ async def analyze_strava_week_against_plan(
         else:
             pontos_atencao.append(f"Aderencia baixa: {n_executados}/{n_planejados} treinos.")
     else:
-        pontos_positivos.append(f"{n_executados} corridas no Strava nessa janela.")
+        if n_executados > 0:
+            pontos_positivos.append(f"{n_executados} corridas no Strava nessa janela (sem plano para comparar).")
+        else:
+            pontos_atencao.append("Sem treinos encontrados no Strava e sem plano para a semana.")
 
     volume_total_km = sum((a.get("distance_km") or 0) for a in atividades)
-
-    # volume_planejado_km já foi calculado acima
-    if not volume_planejado_km and plano and plano.volume_planejado_km:
-        volume_planejado_km = float(plano.volume_planejado_km)
 
     if volume_planejado_km:
         if volume_total_km >= volume_planejado_km * 0.9:
@@ -1574,15 +1685,62 @@ async def analyze_strava_week_against_plan(
         "baixa": "Semana com aderencia baixa. Vamos ajustar a proxima a realidade do atleta.",
     }.get(aderencia, "Semana registrada. Sem mudanca automatica no plano.")
 
-    comparativo = {
+    comparativo: Dict[str, Any] = {
         "treinos_planejados": n_planejados,
         "treinos_executados": n_executados,
         "volume_total_km": round(volume_total_km, 2),
         "volume_planejado_km": volume_planejado_km,
+        "objetivo_semana": objetivo_semana,
     }
 
-    resumo_sugerido = {
-        "semana_inicio": semana_inicio.isoformat(),
+    # Pareamento planejado vs executado por data
+    treinos_pareados: List[Dict[str, Any]] = []
+    executadas_por_data: Dict[str, List[Dict[str, Any]]] = {}
+    for a in atividades:
+        d = a.get("data_local")
+        key = d.isoformat() if isinstance(d, date) else str(d) if d else "sem_data"
+        executadas_por_data.setdefault(key, []).append(a)
+
+    datas_executadas_usadas: set = set()
+    for treino in treinos_plan:
+        data_plan = treino.get("data")
+        match_exec = None
+        if data_plan and data_plan in executadas_por_data:
+            candidatas = executadas_por_data[data_plan]
+            if candidatas:
+                match_exec = candidatas[0]
+                datas_executadas_usadas.add(data_plan)
+
+        pareado: Dict[str, Any] = {
+            "dia": treino.get("dia"),
+            "data": data_plan,
+            "tipo_planejado": treino.get("tipo"),
+            "status": "executado" if match_exec else "pendente",
+        }
+        if match_exec:
+            pareado["executado_nome"] = match_exec.get("name")
+            pareado["executado_km"] = match_exec.get("distance_km")
+            pareado["executado_pace"] = match_exec.get("average_pace_text")
+        treinos_pareados.append(pareado)
+
+    # Treinos extras (feitos sem planejamento)
+    for data_key, execs in executadas_por_data.items():
+        if data_key not in datas_executadas_usadas:
+            for ex in execs:
+                treinos_pareados.append({
+                    "dia": ex.get("dia_semana"),
+                    "data": data_key,
+                    "tipo_planejado": None,
+                    "status": "extra",
+                    "executado_nome": ex.get("name"),
+                    "executado_km": ex.get("distance_km"),
+                    "executado_pace": ex.get("average_pace_text"),
+                })
+
+    comparativo["pareamento"] = treinos_pareados
+
+    resumo_sugerido: Dict[str, Any] = {
+        "semana_inicio": semana_inicio,
         "resumo": (
             f"Semana de {semana_inicio.isoformat()} a {semana_fim.isoformat()}: "
             f"{n_executados} corridas, {volume_total_km:.1f} km. "
@@ -1606,30 +1764,38 @@ async def analyze_strava_week_against_plan(
             )
             salvo["resumo_semanal"] = True
         except Exception:
+            logger.warning("Falha ao salvar resumo semanal", exc_info=True)
             db.rollback()
 
-    analysis = StravaTrainingAnalysis(
-        atleta_id=atleta.id,
-        plano_id=plano.id if plano else None,
-        strava_activity_id=None,
-        periodo="semana",
-        data_inicio=semana_inicio,
-        data_fim=semana_fim,
-        titulo=f"Semana {semana_inicio.isoformat()}",
-        treino_planejado_json={"treinos": treinos_plan, "volume_planejado_km": volume_planejado_km},
-        treino_executado_json={"atividades": [_executado_to_jsonable(a) for a in atividades]},
-        comparativo_json=comparativo,
-        aderencia=aderencia,
-        pontos_positivos=pontos_positivos,
-        pontos_atencao=pontos_atencao,
-        decisao_treinador=decisao,
-        plano_deve_mudar=False,
-        tipo_acao_recomendada="manter",
-        resumo_semanal_criado=salvo["resumo_semanal"],
-    )
-    db.add(analysis)
-    db.commit()
-    db.refresh(analysis)
+    # Persistir analise (best-effort)
+    analise_id: Optional[str] = None
+    try:
+        analysis = StravaTrainingAnalysis(
+            atleta_id=atleta.id,
+            plano_id=plano.id if plano else None,
+            strava_activity_id=None,
+            periodo="semana",
+            data_inicio=semana_inicio,
+            data_fim=semana_fim,
+            titulo=f"Semana {semana_inicio.isoformat()}",
+            treino_planejado_json={"treinos": treinos_plan, "volume_planejado_km": volume_planejado_km},
+            treino_executado_json={"atividades": [_executado_to_jsonable(a) for a in atividades]},
+            comparativo_json=comparativo,
+            aderencia=aderencia,
+            pontos_positivos=pontos_positivos,
+            pontos_atencao=pontos_atencao,
+            decisao_treinador=decisao,
+            plano_deve_mudar=False,
+            tipo_acao_recomendada="manter",
+            resumo_semanal_criado=salvo["resumo_semanal"],
+        )
+        db.add(analysis)
+        db.commit()
+        db.refresh(analysis)
+        analise_id = str(analysis.id)
+    except Exception:
+        logger.warning("Falha ao persistir analise semanal", exc_info=True)
+        db.rollback()
 
     return {
         "periodo": "semana",
@@ -1642,6 +1808,7 @@ async def analyze_strava_week_against_plan(
             "treinos": treinos_plan,
             "volume_planejado_km": volume_planejado_km,
             "treinos_planejados": n_planejados,
+            "objetivo_semana": objetivo_semana,
         },
         "executado": {
             "atividades": [_executado_to_jsonable(a) for a in atividades],
@@ -1657,9 +1824,9 @@ async def analyze_strava_week_against_plan(
         "tipo_acao_recomendada": "manter",
         "memoria_sugerida": None,
         "checkin_sugerido": None,
-        "resumo_semanal_sugerido": resumo_sugerido,
+        "resumo_semanal_sugerido": resumo_sugerido if not salvar_resumo else None,
         "salvo": salvo,
-        "analise_id": str(analysis.id),
+        "analise_id": analise_id,
     }
 
 

@@ -122,8 +122,10 @@ class StravaAnalysisResult(BaseModel):
     periodo: str
     semana_inicio: Optional[str] = None
     semana_fim: Optional[str] = None
+    data_local: Optional[str] = None
     data_inicio_formatada: Optional[str] = None
     data_fim_formatada: Optional[str] = None
+    data_formatada: Optional[str] = None
     titulo: Optional[str] = None
     planejado: Optional[Dict[str, Any]] = None
     executado: Optional[Dict[str, Any]] = None
@@ -139,6 +141,8 @@ class StravaAnalysisResult(BaseModel):
     resumo_semanal_sugerido: Optional[Dict[str, Any]] = None
     salvo: Dict[str, bool] = Field(default_factory=lambda: {"memoria": False, "checkin": False, "resumo_semanal": False})
     analise_id: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # -----------------------------------------------------------------------------

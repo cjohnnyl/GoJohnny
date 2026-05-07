@@ -273,6 +273,10 @@ async def analisar_treino(
         raise HTTPException(status_code=409, detail=str(exc))
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("analisar-treino falhou: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro interno na analise: {type(exc).__name__}: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -303,6 +307,10 @@ async def analisar_semana(
         raise HTTPException(status_code=409, detail=str(exc))
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("analisar-semana falhou: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro interno na analise semanal: {type(exc).__name__}: {exc}")
 
 
 # ---------------------------------------------------------------------------
