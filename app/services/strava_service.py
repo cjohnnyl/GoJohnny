@@ -811,28 +811,13 @@ def _upsert_activity_cache(
 def _activity_cache_to_summary(cache: StravaActivityCache) -> Dict[str, Any]:
     """
     Converte cache de atividade para resumo com campos de data formatada.
-    Adiciona data_local, dia_semana, data_formatada, hora_local.
+    start_date_local é horário local do atleta — não converte timezone.
     """
-    start_dt = cache.start_date_local
-    data_local = None
-    dia_semana = None
-    data_formatada = None
-    hora_local = None
-
-    if start_dt:
-        if isinstance(start_dt, datetime):
-            # Normaliza para São Paulo se necessário
-            if start_dt.tzinfo is None:
-                start_dt = start_dt.replace(tzinfo=timezone.utc)
-            start_sp = normalize_date_to_sp(start_dt)
-            data_local = start_sp.date()
-            dia_semana = get_weekday_name_pt(data_local)
-            data_formatada = format_date_with_weekday_pt(data_local)
-            hora_local = format_time_pt(start_sp)
-        elif isinstance(start_dt, date):
-            data_local = start_dt
-            dia_semana = get_weekday_name_pt(data_local)
-            data_formatada = format_date_with_weekday_pt(data_local)
+    parsed = parse_strava_start_date_local(cache.start_date_local)
+    data_local = parsed["data_local"]
+    dia_semana = parsed["dia_semana"]
+    data_formatada = parsed["data_formatada"]
+    hora_local = parsed["hora_local"]
 
     return {
         "strava_activity_id": cache.strava_activity_id,
@@ -1162,6 +1147,67 @@ def _plano_ativo(db: Session, atleta_id: uuid.UUID) -> Optional[PlanoSemanal]:
         .order_by(PlanoSemanal.semana_inicio.desc())
         .first()
     )
+
+
+def _get_plano_relevante_para_periodo(
+    db: Session,
+    atleta_id: uuid.UUID,
+    semana_inicio: date,
+    semana_fim: date,
+) -> Optional[PlanoSemanal]:
+    """
+    Busca o plano mais relevante para o período, priorizando planos com treinos.
+
+    Ordem de preferência:
+    1. Plano com semana_inicio == semana_inicio do request E com treinos preenchidos
+    2. Plano próximo que cubra o período (semana_inicio dentro de ±7 dias) E com treinos
+    3. Plano ativo (qualquer status) com treinos
+    4. Qualquer plano encontrado, mesmo sem treinos
+    """
+    candidatos: List[PlanoSemanal] = []
+
+    # 1. Semana exata
+    plano_exato = (
+        db.query(PlanoSemanal)
+        .filter(
+            and_(
+                PlanoSemanal.atleta_id == atleta_id,
+                PlanoSemanal.semana_inicio == semana_inicio,
+            )
+        )
+        .first()
+    )
+    if plano_exato:
+        candidatos.append(plano_exato)
+
+    # 2. Semanas próximas (janela de ±7 dias ao redor do período)
+    q = (
+        db.query(PlanoSemanal)
+        .filter(
+            and_(
+                PlanoSemanal.atleta_id == atleta_id,
+                PlanoSemanal.semana_inicio >= semana_inicio - timedelta(days=7),
+                PlanoSemanal.semana_inicio <= semana_fim + timedelta(days=1),
+            )
+        )
+        .order_by(PlanoSemanal.semana_inicio.desc())
+        .limit(5)
+    )
+    proximos = [p for p in q.all() if not plano_exato or p.id != plano_exato.id]
+    candidatos.extend(proximos)
+
+    # 3. Plano ativo
+    ativo = _plano_ativo(db, atleta_id)
+    if ativo and not any(c.id == ativo.id for c in candidatos):
+        candidatos.append(ativo)
+
+    # Preferir candidato com treinos preenchidos
+    for c in candidatos:
+        if _extract_treinos_from_plano(c):
+            return c
+
+    # Fallback: qualquer candidato
+    return candidatos[0] if candidatos else None
 
 
 def _treino_planejado_para_dia(plano: Optional[PlanoSemanal], dt: Any) -> Optional[Dict[str, Any]]:
@@ -1559,6 +1605,57 @@ def _parse_plano_payload(plano_raw: Any) -> Dict[str, Any]:
     return {}
 
 
+def parse_strava_start_date_local(dt_value: Any) -> Dict[str, Any]:
+    """
+    Extrai data/hora de start_date_local SEM converter timezone.
+
+    O Strava envia start_date_local como horário local do atleta mas com
+    offset +00:00 (ex: "2026-05-06T06:48:46Z"). Converter para São Paulo
+    subtrairia 3h indevidamente. Aqui lemos os valores do datetime diretamente.
+    """
+    empty = {"data_local": None, "hora_local": None, "dia_semana": None, "data_formatada": None}
+    if dt_value is None:
+        return empty
+
+    if isinstance(dt_value, datetime):
+        # Lê os componentes sem aplicar conversão de fuso
+        naive = dt_value.replace(tzinfo=None)
+        d = naive.date()
+        hora_local = naive.strftime("%H:%M")
+    elif isinstance(dt_value, date):
+        d = dt_value
+        hora_local = None
+    else:
+        return empty
+
+    return {
+        "data_local": d,
+        "hora_local": hora_local,
+        "dia_semana": get_weekday_name_pt(d),
+        "data_formatada": format_date_with_weekday_pt(d),
+    }
+
+
+def _extract_treinos_from_plano(plano: Optional[Any]) -> List[Dict[str, Any]]:
+    """
+    Extrai lista de treinos do campo plano.plano de forma robusta.
+    Aceita estruturas planas, aninhadas em 'plano' ou 'semana'.
+    """
+    if not plano or not plano.plano:
+        return []
+    plan_data = _parse_plano_payload(plano.plano)
+
+    # Tenta diferentes caminhos de aninhamento
+    treinos = (
+        plan_data.get("treinos")
+        or (plan_data.get("plano") or {}).get("treinos")
+        or (plan_data.get("semana") or {}).get("treinos")
+    )
+    if isinstance(treinos, list):
+        return treinos
+    return []
+
+
 def _safe_date(ref_dt: Any) -> date:
     """Extrai date de qualquer input sem explodir."""
     if isinstance(ref_dt, datetime):
@@ -1585,19 +1682,9 @@ async def analyze_strava_week_against_plan(
 
     atleta = _obter_atleta(db, apelido)
 
-    # --- Busca plano ---
-    plano = (
-        db.query(PlanoSemanal)
-        .filter(
-            and_(
-                PlanoSemanal.atleta_id == atleta.id,
-                PlanoSemanal.semana_inicio == semana_inicio,
-            )
-        )
-        .first()
-    )
-    if not plano:
-        plano = _plano_ativo(db, atleta.id)
+    # --- Busca plano com prioridade: semana exata > semana próxima > ativo ---
+    # Sempre prioriza plano que tenha treinos preenchidos
+    plano = _get_plano_relevante_para_periodo(db, atleta.id, semana_inicio, semana_fim)
 
     # --- Busca atividades Strava ---
     try:
@@ -1619,17 +1706,16 @@ async def analyze_strava_week_against_plan(
     objetivo_semana: Optional[str] = None
 
     if plano:
-        plan_data = _parse_plano_payload(plano.plano)
-        treinos_plan = plan_data.get("treinos") or []
+        treinos_plan = _extract_treinos_from_plano(plano)
 
-        # Enriquece treinos com datas reais
+        # Enriquece treinos com datas reais baseadas na janela informada
+        from app.core.datetime_utils import weekday_date_for_week
         treinos_plan_enriquecidos = []
         for treino in treinos_plan:
             treino_copy = dict(treino)
             if "data" not in treino_copy and "dia" in treino_copy:
-                from app.core.datetime_utils import weekday_date_for_week
                 dia_nome = treino_copy.get("dia", "").lower()
-                data_calculada = weekday_date_for_week(dia_nome, semana_inicio)
+                data_calculada = weekday_date_for_week(dia_nome, semana_inicio, semana_fim)
                 if data_calculada:
                     treino_copy["data"] = data_calculada.isoformat()
                     treino_copy["dia_semana"] = get_weekday_name_pt(data_calculada)
@@ -1693,49 +1779,69 @@ async def analyze_strava_week_against_plan(
         "objetivo_semana": objetivo_semana,
     }
 
-    # Pareamento planejado vs executado por data
+    # Pareamento planejado vs executado — por data (primário) ou dia_semana (fallback)
     treinos_pareados: List[Dict[str, Any]] = []
     executadas_por_data: Dict[str, List[Dict[str, Any]]] = {}
+    executadas_por_dia: Dict[str, List[Dict[str, Any]]] = {}
     for a in atividades:
         d = a.get("data_local")
-        key = d.isoformat() if isinstance(d, date) else str(d) if d else "sem_data"
-        executadas_por_data.setdefault(key, []).append(a)
+        data_key = d.isoformat() if isinstance(d, date) else str(d) if d else "sem_data"
+        executadas_por_data.setdefault(data_key, []).append(a)
+        dia_key = (a.get("dia_semana") or "").lower()
+        if dia_key:
+            executadas_por_dia.setdefault(dia_key, []).append(a)
 
-    datas_executadas_usadas: set = set()
+    ids_exec_usados: set = set()
     for treino in treinos_plan:
         data_plan = treino.get("data")
+        dia_plan = (treino.get("dia") or "").lower()
         match_exec = None
+        match_key = None
+
+        # 1. Tenta por data exata
         if data_plan and data_plan in executadas_por_data:
-            candidatas = executadas_por_data[data_plan]
+            candidatas = [a for a in executadas_por_data[data_plan] if id(a) not in ids_exec_usados]
             if candidatas:
                 match_exec = candidatas[0]
-                datas_executadas_usadas.add(data_plan)
+                match_key = data_plan
+
+        # 2. Fallback: tenta por dia da semana
+        if not match_exec and dia_plan and dia_plan in executadas_por_dia:
+            candidatas = [a for a in executadas_por_dia[dia_plan] if id(a) not in ids_exec_usados]
+            if candidatas:
+                match_exec = candidatas[0]
+                match_key = dia_plan
+
+        if match_exec:
+            ids_exec_usados.add(id(match_exec))
 
         pareado: Dict[str, Any] = {
             "dia": treino.get("dia"),
             "data": data_plan,
             "tipo_planejado": treino.get("tipo"),
+            "titulo_planejado": treino.get("titulo"),
             "status": "executado" if match_exec else "pendente",
         }
         if match_exec:
             pareado["executado_nome"] = match_exec.get("name")
             pareado["executado_km"] = match_exec.get("distance_km")
             pareado["executado_pace"] = match_exec.get("average_pace_text")
+            pareado["executado_data"] = match_exec.get("data_local")
         treinos_pareados.append(pareado)
 
-    # Treinos extras (feitos sem planejamento)
-    for data_key, execs in executadas_por_data.items():
-        if data_key not in datas_executadas_usadas:
-            for ex in execs:
-                treinos_pareados.append({
-                    "dia": ex.get("dia_semana"),
-                    "data": data_key,
-                    "tipo_planejado": None,
-                    "status": "extra",
-                    "executado_nome": ex.get("name"),
-                    "executado_km": ex.get("distance_km"),
-                    "executado_pace": ex.get("average_pace_text"),
-                })
+    # Treinos extras (executados sem planejamento correspondente)
+    for a in atividades:
+        if id(a) not in ids_exec_usados:
+            d = a.get("data_local")
+            treinos_pareados.append({
+                "dia": a.get("dia_semana"),
+                "data": d.isoformat() if isinstance(d, date) else str(d) if d else None,
+                "tipo_planejado": None,
+                "status": "extra",
+                "executado_nome": a.get("name"),
+                "executado_km": a.get("distance_km"),
+                "executado_pace": a.get("average_pace_text"),
+            })
 
     comparativo["pareamento"] = treinos_pareados
 

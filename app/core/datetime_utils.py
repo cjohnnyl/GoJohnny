@@ -143,16 +143,15 @@ def parse_user_relative_date(texto: str, reference_date: Optional[date] = None) 
 
 def weekday_date_for_week(
     dia_semana: str,
-    semana_inicio: date
+    semana_inicio: date,
+    semana_fim: Optional[date] = None,
 ) -> Optional[date]:
     """
-    Dado um nome de dia da semana e a data de início da semana (segunda-feira),
-    retorna a data correspondente naquela semana.
+    Retorna a data do dia_semana dentro da janela semana_inicio..semana_fim.
 
-    dia_semana: "segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"
-    semana_inicio: data de segunda-feira (esperado)
-
-    Retorna a data daquele dia naquela semana, ou None se dia_semana inválido.
+    Não assume que semana_inicio é segunda — varre os 7 dias a partir
+    de semana_inicio e retorna a primeira ocorrência do weekday pedido.
+    Se semana_fim for informado e a data calculada cair fora, retorna None.
     """
     dias_mapa = {
         "segunda": 0,
@@ -166,11 +165,18 @@ def weekday_date_for_week(
         "domingo": 6,
     }
 
-    offset = dias_mapa.get(dia_semana.strip().lower())
-    if offset is None:
+    target_wd = dias_mapa.get(dia_semana.strip().lower())
+    if target_wd is None:
         return None
 
-    return semana_inicio + timedelta(days=offset)
+    for delta in range(7):
+        candidate = semana_inicio + timedelta(days=delta)
+        if candidate.weekday() == target_wd:
+            if semana_fim and candidate > semana_fim:
+                return None
+            return candidate
+
+    return None
 
 
 def normalize_date_to_sp(dt_input: Any) -> datetime:
