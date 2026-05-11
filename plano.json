@@ -1,0 +1,52 @@
+﻿{
+    "volume_planejado_km":  23,
+    "apelido":  "johnny",
+    "dias_treino_json":  [
+                             "quarta",
+                             "sexta",
+                             "domingo"
+                         ],
+    "objetivo_semana":  "Retomar consistência com controle de ritmo",
+    "versao_estrutura":  2,
+    "semana_inicio":  "2026-05-05",
+    "novo_ciclo":  true,
+    "plano":  {
+                  "volume_estimado_km":  "22-24",
+                  "foco":  "controle + consistência",
+                  "treinos":  [
+                                  {
+                                      "objetivo":  "Reativar ritmo com controle",
+                                      "tipo":  "moderado_progressivo",
+                                      "pace":  "6:20-5:50/km",
+                                      "duracao_min":  40,
+                                      "dia":  "quarta",
+                                      "observacao":  "Começar controlado e progredir sem virar tiro.",
+                                      "estimativa_km":  "6.5-7",
+                                      "titulo":  "Moderado progressivo"
+                                  },
+                                  {
+                                      "objetivo":  "Recuperação ativa",
+                                      "tipo":  "leve_regenerativo",
+                                      "pace":  "6:30-7:00/km",
+                                      "duracao_min":  35,
+                                      "dia":  "sexta",
+                                      "observacao":  "Segurar o ego. Regenerativo precisa ser leve.",
+                                      "estimativa_km":  "5-5.5",
+                                      "titulo":  "Leve regenerativo"
+                                  },
+                                  {
+                                      "objetivo":  "Construir base aeróbica",
+                                      "tipo":  "longo",
+                                      "pace":  "6:20-6:40/km",
+                                      "duracao_min":  70,
+                                      "dia":  "domingo",
+                                      "observacao":  "Ritmo constante. Sem acelerar no final.",
+                                      "estimativa_km":  "10.5-11.5",
+                                      "titulo":  "Longo"
+                                  }
+                              ],
+                  "semana":  1,
+                  "ponto_principal":  "controle de ritmo maior que performance momentânea"
+              },
+    "status":  "ativo"
+}

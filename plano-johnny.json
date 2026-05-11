@@ -1,0 +1,48 @@
+﻿{
+  "apelido": "johnny",
+  "semana_inicio": "2026-05-05",
+  "objetivo_semana": "Retomar consistência com controle de ritmo",
+  "volume_planejado_km": 23,
+  "status": "ativo",
+  "novo_ciclo": true,
+  "dias_treino_json": ["quarta", "sexta", "domingo"],
+  "versao_estrutura": 2,
+  "plano": {
+    "semana": 1,
+    "foco": "controle + consistência",
+    "volume_estimado_km": "22-24",
+    "ponto_principal": "controle de ritmo maior que performance momentânea",
+    "treinos": [
+      {
+        "dia": "quarta",
+        "tipo": "moderado_progressivo",
+        "titulo": "Moderado progressivo",
+        "duracao_min": 40,
+        "pace": "6:20-5:50/km",
+        "estimativa_km": "6.5-7",
+        "objetivo": "Reativar ritmo com controle",
+        "observacao": "Começar controlado e progredir sem virar tiro."
+      },
+      {
+        "dia": "sexta",
+        "tipo": "leve_regenerativo",
+        "titulo": "Leve regenerativo",
+        "duracao_min": 35,
+        "pace": "6:30-7:00/km",
+        "estimativa_km": "5-5.5",
+        "objetivo": "Recuperação ativa",
+        "observacao": "Segurar o ego. Regenerativo precisa ser leve."
+      },
+      {
+        "dia": "domingo",
+        "tipo": "longo",
+        "titulo": "Longo",
+        "duracao_min": 70,
+        "pace": "6:20-6:40/km",
+        "estimativa_km": "10.5-11.5",
+        "objetivo": "Construir base aeróbica",
+        "observacao": "Ritmo constante. Sem acelerar no final."
+      }
+    ]
+  }
+}

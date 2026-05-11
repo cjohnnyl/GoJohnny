@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import verify_api_key
+from app.core.utils import normalize_apelido
 from app.models.atleta import Atleta
 from app.schemas.oauth import (
     OAuthLoginResponse,
@@ -59,11 +60,12 @@ def oauth_login(
         500: Erro ao gerar URL (config Google não definida)
     """
     # Verificar se atleta existe
-    atleta = db.query(Atleta).filter(Atleta.apelido == apelido).first()
+    normalized_apelido = normalize_apelido(apelido)
+    atleta = db.query(Atleta).filter(Atleta.apelido == normalized_apelido).first()
     if not atleta:
         raise HTTPException(
             status_code=404,
-            detail=f"Atleta '{apelido}' não encontrado",
+            detail=f"Atleta '{normalized_apelido}' não encontrado",
         )
 
     # Gerar URL de login
@@ -124,16 +126,17 @@ async def oauth_callback(
     expires_in = resultado.get("expires_in", 3600)
 
     # Encontrar atleta
+    normalized_apelido = normalize_apelido(atleta_apelido)
     atleta = (
         db.query(Atleta)
-        .filter(Atleta.apelido == atleta_apelido)
+        .filter(Atleta.apelido == normalized_apelido)
         .first()
     )
 
     if not atleta:
         raise HTTPException(
             status_code=404,
-            detail=f"Atleta '{atleta_apelido}' não encontrado",
+            detail=f"Atleta '{normalized_apelido}' não encontrado",
         )
 
     # Salvar tokens
@@ -188,11 +191,12 @@ def oauth_status(
         404: Atleta não encontrado
     """
     # Verificar se atleta existe
-    atleta = db.query(Atleta).filter(Atleta.apelido == apelido).first()
+    normalized_apelido = normalize_apelido(apelido)
+    atleta = db.query(Atleta).filter(Atleta.apelido == normalized_apelido).first()
     if not atleta:
         raise HTTPException(
             status_code=404,
-            detail=f"Atleta '{apelido}' não encontrado",
+            detail=f"Atleta '{normalized_apelido}' não encontrado",
         )
 
     # Verificar integracao Google
@@ -244,11 +248,12 @@ def oauth_disconnect(
         404: Atleta não encontrado
     """
     # Verificar se atleta existe
-    atleta = db.query(Atleta).filter(Atleta.apelido == apelido).first()
+    normalized_apelido = normalize_apelido(apelido)
+    atleta = db.query(Atleta).filter(Atleta.apelido == normalized_apelido).first()
     if not atleta:
         raise HTTPException(
             status_code=404,
-            detail=f"Atleta '{apelido}' não encontrado",
+            detail=f"Atleta '{normalized_apelido}' não encontrado",
         )
 
     # Desativar integracao

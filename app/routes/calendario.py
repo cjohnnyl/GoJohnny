@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import verify_api_key
 from app.core.database import get_db
+from app.core.utils import normalize_apelido
 from app.models.atleta import Atleta
 from app.schemas.evento import CalendarioPreview, CalendarioPublicacaoResponse
 from app.services.evento_service import listar_eventos_atleta
@@ -72,17 +73,18 @@ async def publicar_calendario(
     _: str = Depends(verify_api_key),
 ) -> CalendarioPublicacaoResponse:
     """Publica eventos reais do plano ativo no Google Calendar."""
+    normalized_apelido = normalize_apelido(apelido)
     atleta = (
         db.query(Atleta)
-        .filter(Atleta.apelido == apelido)
+        .filter(Atleta.apelido == normalized_apelido)
         .first()
     )
 
     if not atleta:
-        logger.warning("calendario.publicar_atleta_nao_encontrado apelido=%s", apelido)
+        logger.warning("calendario.publicar_atleta_nao_encontrado apelido=%s", normalized_apelido)
         raise HTTPException(
             status_code=404,
-            detail=f"Atleta '{apelido}' nao encontrado",
+            detail=f"Atleta '{normalized_apelido}' nao encontrado",
         )
 
     try:
