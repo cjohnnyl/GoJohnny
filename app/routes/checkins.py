@@ -14,7 +14,13 @@ router = APIRouter(
 )
 
 
-@router.post("", response_model=CheckinRead, status_code=201)
+@router.post(
+    "",
+    response_model=CheckinRead,
+    status_code=201,
+    summary="[ESCRITA] Criar check-in semanal",
+    description="**Risco: ESCRITA** — Salva check-in de desempenho no banco. Usar apenas em qa_ durante testes.",
+)
 def create_checkin(data: CheckinCreate, db: Session = Depends(get_db)):
     atleta = get_atleta_by_apelido(db, data.apelido)
     checkin = Checkin(

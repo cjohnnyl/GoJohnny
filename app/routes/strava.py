@@ -9,12 +9,13 @@ from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import verify_api_key
 from app.core.config import STRAVA_SUCCESS_REDIRECT_URL
+from app.core.request_id import request_id_var
 from app.schemas.strava import (
     StravaStatusResponse,
     StravaPreferenceUpdate,
@@ -36,6 +37,20 @@ router = APIRouter(prefix="/strava", tags=["strava"])
 
 def _handle_lookup_error(exc: Exception) -> None:
     raise HTTPException(status_code=404, detail=str(exc))
+
+
+def _strava_not_connected_response(apelido: str = "") -> JSONResponse:
+    req_id = request_id_var.get() or "unknown"
+    return JSONResponse(
+        status_code=409,
+        headers={"X-Request-ID": req_id},
+        content={
+            "connected": False,
+            "action_required": "connect_strava",
+            "message": "Strava não conectado para este usuário.",
+            "request_id": req_id,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -154,8 +169,8 @@ async def treino_hoje(apelido: str, db: Session = Depends(get_db)):
         return await strava_service.get_today_run(db, apelido)
     except LookupError as exc:
         _handle_lookup_error(exc)
-    except PermissionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+    except PermissionError:
+        return _strava_not_connected_response(apelido)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
@@ -179,8 +194,8 @@ async def treinos_semana(
         atividades = await strava_service.get_week_runs(db, apelido, semana_inicio, semana_fim)
     except LookupError as exc:
         _handle_lookup_error(exc)
-    except PermissionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+    except PermissionError:
+        return _strava_not_connected_response(apelido)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
@@ -210,8 +225,8 @@ async def treinos_recentes(
         atividades = await strava_service.get_recent_runs(db, apelido, limit=limit)
     except LookupError as exc:
         _handle_lookup_error(exc)
-    except PermissionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+    except PermissionError:
+        return _strava_not_connected_response(apelido)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
@@ -237,8 +252,8 @@ async def atividade(apelido: str, activity_id: int, db: Session = Depends(get_db
         result = await strava_service.fetch_activity_detail(db, apelido, activity_id)
     except LookupError as exc:
         _handle_lookup_error(exc)
-    except PermissionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+    except PermissionError:
+        return _strava_not_connected_response(apelido)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
@@ -253,6 +268,11 @@ async def atividade(apelido: str, activity_id: int, db: Session = Depends(get_db
     "/analisar-treino/{apelido}",
     response_model=StravaAnalysisResult,
     dependencies=[Depends(verify_api_key)],
+    summary="[ESCRITA] Analisar treino Strava vs plano",
+    description=(
+        "**Risco: ESCRITA** — Pode criar check-in e memória se salvar_checkin/salvar_memoria=true. "
+        "Usar com qa_ em testes; evitar em johnny/larissa sem intenção de salvar dados."
+    ),
 )
 async def analisar_treino(
     apelido: str,
@@ -269,14 +289,10 @@ async def analisar_treino(
         )
     except LookupError as exc:
         _handle_lookup_error(exc)
-    except PermissionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+    except PermissionError:
+        return _strava_not_connected_response(apelido)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error("analisar-treino falhou: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Erro interno na analise: {type(exc).__name__}: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -287,6 +303,11 @@ async def analisar_treino(
     "/analisar-semana/{apelido}",
     response_model=StravaAnalysisResult,
     dependencies=[Depends(verify_api_key)],
+    summary="[ESCRITA] Analisar semana Strava vs plano",
+    description=(
+        "**Risco: ESCRITA** — Pode criar resumo semanal se salvar_resumo=true. "
+        "Usar com qa_ em testes; evitar em johnny/larissa sem intenção de salvar dados."
+    ),
 )
 async def analisar_semana(
     apelido: str,
@@ -303,14 +324,10 @@ async def analisar_semana(
         )
     except LookupError as exc:
         _handle_lookup_error(exc)
-    except PermissionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+    except PermissionError:
+        return _strava_not_connected_response(apelido)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error("analisar-semana falhou: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Erro interno na analise semanal: {type(exc).__name__}: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -331,8 +348,8 @@ async def treinos_ultimos_dias(
         result = await strava_service.get_runs_last_n_days(db, apelido, dias=dias)
     except LookupError as exc:
         _handle_lookup_error(exc)
-    except PermissionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+    except PermissionError:
+        return _strava_not_connected_response(apelido)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 

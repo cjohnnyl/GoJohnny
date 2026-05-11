@@ -66,7 +66,15 @@ def preview_calendario(
         )
 
 
-@router.post("/{apelido}/publicar", response_model=CalendarioPublicacaoResponse)
+@router.post(
+    "/{apelido}/publicar",
+    response_model=CalendarioPublicacaoResponse,
+    summary="[EXIGE CONFIRMAÇÃO] Publicar calendário no Google",
+    description=(
+        "**Risco: EXIGE CONFIRMAÇÃO** — Publica eventos do plano ativo no Google Calendar do usuário. "
+        "Ação irreversível pelo backend (requer Google OAuth ativo). Não usar em testes automáticos."
+    ),
+)
 async def publicar_calendario(
     apelido: str,
     db: Session = Depends(get_db),

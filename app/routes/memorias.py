@@ -35,8 +35,11 @@ router = APIRouter(
 
 @router.post(
     "/{apelido}",
-    summary="Salvar memória do atleta",
-    description="Salva uma memória útil do atleta (feedback, objetivo, preferência, etc.)",
+    summary="[ESCRITA] Salvar memória do atleta",
+    description=(
+        "**Risco: ESCRITA** — Salva memória persistente no banco. "
+        "Usar apenas em qa_ durante testes automatizados."
+    ),
     tags=["memorias"],
 )
 def post_salvar_memoria(

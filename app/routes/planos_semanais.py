@@ -32,7 +32,13 @@ router = APIRouter(
 )
 
 
-@router.post("", response_model=PlanoSemanalRead, status_code=201)
+@router.post(
+    "",
+    response_model=PlanoSemanalRead,
+    status_code=201,
+    summary="[ESCRITA] Criar plano semanal",
+    description="**Risco: ESCRITA** — Cria plano no banco. Usar apenas em qa_ durante testes.",
+)
 def create_plano(data: PlanoSemanalCreate = Body(...), db: Session = Depends(get_db)):
     atleta = get_atleta_by_apelido(db, data.apelido)
     try:
