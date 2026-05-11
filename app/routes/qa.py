@@ -28,7 +28,9 @@ router = APIRouter(
     dependencies=[Depends(verify_api_key)],
 )
 
-# Tabelas em ordem de deleção segura (filhos antes de pai)
+# Tabelas em ordem de deleção segura (filhos antes de pai).
+# Apenas tabelas confirmadas como existentes via migrations aplicadas.
+# integracao_google: modelo existe no código mas sem migration aplicada — omitida.
 _CLEANUP_SQL = [
     "DELETE FROM public.atleta_memorias WHERE atleta_id = :id",
     "DELETE FROM public.contexto_atleta WHERE atleta_id = :id",
@@ -40,7 +42,6 @@ _CLEANUP_SQL = [
     "DELETE FROM public.strava_sync_logs WHERE atleta_id = :id",
     "DELETE FROM public.strava_preferences WHERE atleta_id = :id",
     "DELETE FROM public.strava_connections WHERE atleta_id = :id",
-    "DELETE FROM public.integracao_google WHERE atleta_id = :id",
     "DELETE FROM public.calendario_eventos_google WHERE atleta_id = :id",
     "DELETE FROM public.atletas WHERE id = :id",
 ]
