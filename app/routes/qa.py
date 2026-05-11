@@ -9,7 +9,7 @@ RESTRICOES:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import and_
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.auth import verify_api_key
@@ -20,10 +20,12 @@ from app.models.plano_semanal import PlanoSemanal
 from app.models.checkin import Checkin
 from app.models.atleta_memoria import AtletaMemoria
 from app.models.contexto_atleta import ContextoAtleta
+from app.models.evento_google_publicado import EventoGooglePublicado
 from app.models.strava import (
     StravaPreference,
     StravaConnection,
     StravaActivityCache,
+    StravaActivityStreamsCache,
     StravaTrainingAnalysis,
     StravaSyncLog,
 )
@@ -85,31 +87,35 @@ def cleanup_qa_user(apelido: str, db: Session = Depends(get_db)) -> None:
             detail=f"Atleta '{normalized_apelido}' não encontrado",
         )
 
-    # Remover em cascata
+    atleta_id = atleta.id
+
+    # Remover em cascata (synchronize_session=False evita conflitos no identity map do ORM)
     # 1. Memórias
-    db.query(AtletaMemoria).filter(AtletaMemoria.atleta_id == atleta.id).delete()
+    db.query(AtletaMemoria).filter(AtletaMemoria.atleta_id == atleta_id).delete(synchronize_session=False)
 
     # 2. Contexto
-    db.query(ContextoAtleta).filter(ContextoAtleta.atleta_id == atleta.id).delete()
+    db.query(ContextoAtleta).filter(ContextoAtleta.atleta_id == atleta_id).delete(synchronize_session=False)
 
     # 3. Check-ins
-    db.query(Checkin).filter(Checkin.atleta_id == atleta.id).delete()
+    db.query(Checkin).filter(Checkin.atleta_id == atleta_id).delete(synchronize_session=False)
 
     # 4. Planos Semanais
-    db.query(PlanoSemanal).filter(PlanoSemanal.atleta_id == atleta.id).delete()
+    db.query(PlanoSemanal).filter(PlanoSemanal.atleta_id == atleta_id).delete(synchronize_session=False)
 
-    # 5. Strava
-    db.query(StravaPreference).filter(StravaPreference.atleta_id == atleta.id).delete()
-    db.query(StravaConnection).filter(StravaConnection.atleta_id == atleta.id).delete()
-    db.query(StravaActivityCache).filter(StravaActivityCache.atleta_id == atleta.id).delete()
-    db.query(StravaTrainingAnalysis).filter(StravaTrainingAnalysis.atleta_id == atleta.id).delete()
-    db.query(StravaSyncLog).filter(StravaSyncLog.atleta_id == atleta.id).delete()
+    # 5. Strava (streams antes de activity cache, por dependência de dados)
+    db.query(StravaActivityStreamsCache).filter(StravaActivityStreamsCache.atleta_id == atleta_id).delete(synchronize_session=False)
+    db.query(StravaActivityCache).filter(StravaActivityCache.atleta_id == atleta_id).delete(synchronize_session=False)
+    db.query(StravaTrainingAnalysis).filter(StravaTrainingAnalysis.atleta_id == atleta_id).delete(synchronize_session=False)
+    db.query(StravaSyncLog).filter(StravaSyncLog.atleta_id == atleta_id).delete(synchronize_session=False)
+    db.query(StravaPreference).filter(StravaPreference.atleta_id == atleta_id).delete(synchronize_session=False)
+    db.query(StravaConnection).filter(StravaConnection.atleta_id == atleta_id).delete(synchronize_session=False)
 
-    # 6. Google OAuth
-    db.query(IntegracaoGoogle).filter(IntegracaoGoogle.atleta_id == atleta.id).delete()
+    # 6. Google OAuth + Calendário
+    db.query(IntegracaoGoogle).filter(IntegracaoGoogle.atleta_id == atleta_id).delete(synchronize_session=False)
+    db.query(EventoGooglePublicado).filter(EventoGooglePublicado.atleta_id == atleta_id).delete(synchronize_session=False)
 
-    # 7. Atleta
-    db.delete(atleta)
+    # 7. Atleta — raw SQL para evitar processamento de backref do ORM
+    db.execute(text("DELETE FROM public.atletas WHERE id = :id"), {"id": str(atleta_id)})
 
     # Confirmar
     db.commit()
